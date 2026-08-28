@@ -5,7 +5,7 @@ let data = {
     results: JSON.parse(localStorage.getItem('ts_results')) || []
 };
 
-const GEMINI_API_KEY = "AQ.Ab8RN6KG33iEl-aaHn4XZIK0mZxAq6GBwa7HU_0GaudKb0tldA";
+const GEMINI_API_KEY = "AQ.Ab8RN6I5oz_B93pqLpvtmW7fQSwtkWvV6WN1BJEDP0YTBxI2Ug";
 
 const LEVELS = {
     "Ingliz tili": [
