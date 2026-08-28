@@ -584,36 +584,23 @@ async function handleGenerateTest(e) {
     Ensure correctAnswerIndex is an integer from 0 to 3.`;
 
     try {
-        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${GEMINI_API_KEY}`, {
+        const response = await fetch('/api/generate-test', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                contents: [{ parts: [{ text: prompt }] }],
-                generationConfig: {
-                    temperature: 1,
-                    topP: 0.95,
-                    maxOutputTokens: 65536,
-                }
+                subject: subject,
+                level: level,
+                promptText: promptText
             })
         });
 
+        if (!response.ok) {
+            const errData = await response.json();
+            throw new Error(errData.detail || "Serverdan xato keldi.");
+        }
+
         const result = await response.json();
-        
-        let aiText = result?.candidates?.[0]?.content?.parts?.[0]?.text;
-        
-        if (!aiText) {
-            throw new Error(result?.error?.message || "AI javob qaytarmadi.");
-        }
-        
-        // Extract JSON array using regex if there's any surrounding text
-        const match = aiText.match(/\[[\s\S]*\]/);
-        if (match) {
-            aiText = match[0];
-        } else {
-            throw new Error("AI formatni to'g'ri qaytarmadi.");
-        }
-        
-        const questions = JSON.parse(aiText);
+        const questions = result.questions;
         
         if (!Array.isArray(questions) || questions.length === 0) {
             throw new Error("Yaratilgan savollar ro'yxati bo'sh yoki noto'g'ri.");
