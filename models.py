@@ -38,3 +38,8 @@ class Result(Base):
     correct = Column(Integer)
     total = Column(Integer)
     date = Column(DateTime, default=datetime.utcnow)
+
+class AppStateDB(Base):
+    __tablename__ = "app_state"
+    id = Column(Integer, primary_key=True, index=True, default=1)
+    state_json = Column(Text, default='{"teachers":[],"tests":[],"results":[]}')

@@ -132,6 +132,30 @@ def create_result(result: schemas.ResultCreate, db: Session = Depends(get_db)):
     db.refresh(db_result)
     return {"id": db_result.id, "studentName": db_result.student_name, "studentPhone": db_result.student_phone, "teacherId": db_result.teacher_id, "level": db_result.level, "correct": db_result.correct, "total": db_result.total, "date": db_result.date}
 
+# --- STATE SYNC ---
+class AppStateSync(BaseModel):
+    teachers: list = []
+    tests: list = []
+    results: list = []
+
+@app.get("/api/state")
+def get_state(db: Session = Depends(get_db)):
+    state = db.query(models.AppStateDB).filter(models.AppStateDB.id == 1).first()
+    if state and state.state_json:
+        return json.loads(state.state_json)
+    return {"teachers": [], "tests": [], "results": []}
+
+@app.post("/api/state")
+def save_state(state: AppStateSync, db: Session = Depends(get_db)):
+    db_state = db.query(models.AppStateDB).filter(models.AppStateDB.id == 1).first()
+    if not db_state:
+        db_state = models.AppStateDB(id=1, state_json=json.dumps(state.dict()))
+        db.add(db_state)
+    else:
+        db_state.state_json = json.dumps(state.dict())
+    db.commit()
+    return {"status": "ok"}
+
 # Serve Static Frontend Files
 app.mount("/static", StaticFiles(directory="."), name="static")
 
