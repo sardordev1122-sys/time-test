@@ -1,9 +1,41 @@
-// Data Store
 let data = {
-    teachers: JSON.parse(localStorage.getItem('ts_teachers')) || [],
-    tests: JSON.parse(localStorage.getItem('ts_tests')) || [],
-    results: JSON.parse(localStorage.getItem('ts_results')) || []
+    teachers: [],
+    tests: [],
+    results: []
 };
+
+async function loadDataFromBackend() {
+    try {
+        const res = await fetch('/api/state');
+        if (res.ok) {
+            const serverData = await res.json();
+            data.teachers = serverData.teachers || [];
+            data.tests = serverData.tests || [];
+            data.results = serverData.results || [];
+            
+            updateDashboardStats();
+            renderTeachersTable();
+            renderTestsTable();
+            renderResultsTable();
+            populateTeacherSelectsAdmin();
+            populateTeachersForStudent();
+        }
+    } catch(e) {
+        console.error("Backenddan ma'lumot olishda xatolik:", e);
+    }
+}
+
+async function saveData() {
+    try {
+        await fetch('/api/state', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+    } catch(e) {
+        console.error("Backendga saqlashda xatolik:", e);
+    }
+}
 
 const GEMINI_API_KEY = "AQ.Ab8RN6I5oz_B93pqLpvtmW7fQSwtkWvV6WN1BJEDP0YTBxI2Ug";
 
@@ -34,12 +66,7 @@ function getLevelsForSubject(subject) {
     return LEVELS["default"];
 }
 
-// Save to LocalStorage
-function saveData() {
-    localStorage.setItem('ts_teachers', JSON.stringify(data.teachers));
-    localStorage.setItem('ts_tests', JSON.stringify(data.tests));
-    localStorage.setItem('ts_results', JSON.stringify(data.results));
-}
+// End of old saveData (removed)
 
 // Current Test Session
 let currentStudent = null;
@@ -63,6 +90,7 @@ function closeAdminLogin() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+    loadDataFromBackend();
     
     // Mode Selection
     document.getElementById('btn-student-mode').addEventListener('click', () => {
