@@ -7,7 +7,7 @@ from typing import List
 import os
 import json
 import re
-from google import genai
+import google.generativeai as genai
 
 import models
 import schemas
@@ -84,9 +84,14 @@ class GenerateTestRequest(BaseModel):
 
 @app.post("/api/generate-test")
 def generate_test_api(req: GenerateTestRequest):
-    api_key = "AQ.Ab8RN6JQat2EbdtpJtQT45Pdo1H-IWpitBesjt0oMvoCHnoAXQ" 
+    api_key = os.environ.get("GEMINI_API_KEY")
+    if not api_key:
+        raise HTTPException(status_code=500, detail="Serverda GEMINI_API_KEY sozlanmagan. Iltimos Railway'dan Variables qo'shing.")
+        
     try:
-        client = genai.Client(api_key=api_key)
+        genai.configure(api_key=api_key)
+        model = genai.GenerativeModel('gemini-1.5-flash')
+        
         prompt = f"""Generate exactly 50 multiple-choice questions for {req.subject} at {req.level} level in Uzbek language. 
 Additional instructions: {req.promptText}.
 Return the response ONLY as a valid JSON array of objects. Do NOT include any markdown code blocks, do NOT include ```json. Just the raw array.
@@ -94,11 +99,7 @@ Each object must have this exact structure:
 {{"question": "Question text here?", "options": ["Option 1", "Option 2", "Option 3", "Option 4"], "correctAnswerIndex": 0}}
 Ensure correctAnswerIndex is an integer from 0 to 3."""
 
-        response = client.models.generate_content(
-            model='gemini-2.5-flash',
-            contents=prompt,
-            config={'temperature': 1, 'max_output_tokens': 65536}
-        )
+        response = model.generate_content(prompt)
         ai_text = response.text
         
         match = re.search(r'\[[\s\S]*\]', ai_text)
