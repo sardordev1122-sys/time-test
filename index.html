@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Time School</title>
+    <link rel="stylesheet" href="style.css">
+    <!-- Load external libraries for export -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
+</head>
+<body>
+
+<!-- Mode Selector (Landing) -->
+<div class="student-container" id="mode-selector">
+    <div class="student-card" style="text-align: center;">
+        <div class="test-header">
+            <h1>Time <span>School</span></h1>
+            <p>Tizimga xush kelibsiz. Iltimos, bo'limni tanlang:</p>
+        </div>
+        <div style="display: flex; gap: 1rem; justify-content: center; margin-top: 2rem;">
+            <button id="btn-student-mode" class="btn" style="flex: 1;">O'quvchi</button>
+            <button id="btn-admin-login-mode" class="btn btn-danger" style="flex: 1; background-color: var(--text-dark);">Admin</button>
+        </div>
+    </div>
+</div>
+
+<!-- Admin Login Modal -->
+<div id="admin-login-modal" class="modal">
+    <div class="modal-content" style="max-width: 400px;">
+        <span class="close-modal" onclick="closeAdminLogin()">&times;</span>
+        <div class="test-header">
+            <h2>Admin <span>Login</span></h2>
+        </div>
+        <form id="admin-login-form">
+            <div class="form-group">
+                <label>Login</label>
+                <input type="text" id="admin-username" class="form-control" required>
+            </div>
+            <div class="form-group">
+                <label>Parol</label>
+                <input type="password" id="admin-password" class="form-control" required>
+            </div>
+            <button type="submit" class="btn" style="width: 100%;">Kirish</button>
+        </form>
+    </div>
+</div>
+
+<!-- ================= STUDENT PANEL ================= -->
+<div id="student-app" class="hidden">
+    <div style="position: absolute; top: 20px; right: 20px;">
+        <button class="btn btn-danger" style="padding: 5px 10px; font-size: 0.8rem; background-color: var(--text-dark);" onclick="location.reload()">Chiqish</button>
+    </div>
+    
+    <div class="student-container">
+        <div class="student-card" id="registration-card">
+            <div class="test-header">
+                <h1>Time <span>School</span></h1>
+                <p>Test ishlash uchun ma'lumotlaringizni kiriting</p>
+            </div>
+            <form id="student-form">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="firstName">Ism</label>
+                        <input type="text" id="firstName" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="lastName">Familiya</label>
+                        <input type="text" id="lastName" class="form-control" required>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="phone">Telefon raqam</label>
+                    <input type="tel" id="phone" class="form-control" required>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="teacherSelect">O'qituvchi</label>
+                        <select id="teacherSelect" class="form-control" required>
+                            <option value="">Tanlang...</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="studentSubjectSelect">Fan</label>
+                        <select id="studentSubjectSelect" class="form-control" required disabled>
+                            <option value="">Oldin o'qituvchini tanlang</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="levelSelect">Daraja</label>
+                    <select id="levelSelect" class="form-control" required disabled>
+                        <option value="">Oldin fanni tanlang</option>
+                    </select>
+                </div>
+
+                <button type="submit" class="btn" style="width: 100%; margin-top: 1rem;">Testni Boshlash</button>
+            </form>
+        </div>
+
+        <div class="student-card hidden" id="test-card">
+            <div class="test-header">
+                <h1>Time <span>School</span> Test</h1>
+                <h3 id="test-info-display"></h3>
+                <div id="test-timer" style="font-size: 1.5rem; font-weight: bold; color: var(--danger); margin-top: 10px;">60:00</div>
+            </div>
+            <form id="test-form">
+                <div id="questions-container">
+                    <!-- Questions will be injected here -->
+                </div>
+                <button type="submit" id="submit-test-btn" class="btn" style="width: 100%; margin-top: 1.5rem; display: none;">Testni Yakunlash</button>
+            </form>
+        </div>
+
+        <div class="student-card hidden" id="result-card">
+            <div class="test-header">
+                <h1>Test <span>Natijasi</span></h1>
+            </div>
+            <div class="circular-chart-container">
+                <div class="circular-chart" id="res-chart">
+                    <div class="percentage" id="res-percentage">0%</div>
+                </div>
+            </div>
+            <div class="stats-grid" style="margin-top: 2rem;">
+                <div class="stat-card">
+                    <div class="stat-info">
+                        <h3 id="res-total">0</h3>
+                        <p>Jami savollar</p>
+                    </div>
+                </div>
+                <div class="stat-card" style="border-left: 4px solid var(--success);">
+                    <div class="stat-info">
+                        <h3 id="res-correct" style="color: var(--success);">0</h3>
+                        <p>To'g'ri javoblar</p>
+                    </div>
+                </div>
+                <div class="stat-card" style="border-left: 4px solid var(--danger);">
+                    <div class="stat-info">
+                        <h3 id="res-wrong" style="color: var(--danger);">0</h3>
+                        <p>Xato javoblar</p>
+                    </div>
+                </div>
+            </div>
+            <div style="text-align: center; margin-top: 2rem;">
+                <button onclick="location.reload()" class="btn">Bosh sahifaga qaytish</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<!-- ================= ADMIN PANEL ================= -->
+<div id="admin-app" class="hidden">
+    <div class="admin-container">
+        <aside class="sidebar">
+            <div class="sidebar-logo">Time <span>School</span></div>
+            <ul class="nav-menu">
+                <li class="nav-item">
+                    <a href="#" class="nav-link active" data-target="dashboard">Dashboard</a>
+                </li>
+                <li class="nav-item">
+                    <a href="#" class="nav-link" data-target="teachers">O'qituvchilar</a>
+                </li>
+                <li class="nav-item">
+                    <a href="#" class="nav-link" data-target="tests">Testlar</a>
+                </li>
+                <li class="nav-item">
+                    <a href="#" class="nav-link" data-target="results">Natijalar</a>
+                </li>
+                <li class="nav-item" style="margin-top: 2rem;">
+                    <a href="#" class="nav-link" style="color: var(--danger);" onclick="location.reload()">
+                        Bosh sahifaga qaytish
+                    </a>
+                </li>
+            </ul>
+        </aside>
+
+        <main class="main-content">
+            <!-- Dashboard Section -->
+            <section id="dashboard" class="content-section">
+                <h2>Dashboard</h2>
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-icon">👥</div>
+                        <div class="stat-info">
+                            <h3 id="stat-total-students">0</h3>
+                            <p>Jami o'quvchilar</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">📝</div>
+                        <div class="stat-info">
+                            <h3 id="stat-total-tests">0</h3>
+                            <p>Yechilgan testlar</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">👨‍🏫</div>
+                        <div class="stat-info">
+                            <h3 id="stat-total-teachers">0</h3>
+                            <p>O'qituvchilar</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card" style="margin-top: 2rem;">
+                    <h3>So'nggi Natijalar (Top 5)</h3>
+                    <div class="table-responsive">
+                        <table id="recent-results-table">
+                            <thead>
+                                <tr>
+                                    <th>O'quvchi</th>
+                                    <th>O'qituvchi</th>
+                                    <th>Daraja</th>
+                                    <th>Natija</th>
+                                    <th>Sana</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Teachers Section -->
+            <section id="teachers" class="content-section hidden">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                    <h2>O'qituvchilar</h2>
+                    <button class="btn" onclick="openModal('add-teacher-modal')">+ Yangi Qo'shish</button>
+                </div>
+                
+                <div class="card">
+                    <div class="table-responsive">
+                        <table id="teachers-table">
+                            <thead>
+                                <tr>
+                                    <th>F.I.O</th>
+                                    <th>Telefon</th>
+                                    <th>Fanlar</th>
+                                    <th>Harakatlar</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+                
+                <div class="card hidden" id="teacher-students-card">
+                    <h3 id="teacher-students-title">O'quvchilar Natijalari</h3>
+                    <button id="btn-export-excel" class="btn" style="margin-bottom: 1rem;">Excel Yuklab Olish</button>
+                    <button id="btn-export-pdf-teacher" class="btn btn-danger" style="margin-bottom: 1rem; margin-left: 0.5rem;">PDF Yuklab Olish</button>
+                    <div class="table-responsive">
+                        <table id="teacher-students-table">
+                            <thead>
+                                <tr>
+                                    <th>O'quvchi</th>
+                                    <th>Telefon</th>
+                                    <th>Daraja</th>
+                                    <th>To'g'ri</th>
+                                    <th>Xato</th>
+                                    <th>Sana</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Tests Section -->
+            <section id="tests" class="content-section hidden">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                    <h2>Testlar</h2>
+                    <button class="btn" onclick="openModal('add-test-modal')">+ Yangi Test Yaratish (AI)</button>
+                </div>
+
+                <div class="card">
+                    <div class="table-responsive">
+                        <table id="tests-table">
+                            <thead>
+                                <tr>
+                                    <th>O'qituvchi</th>
+                                    <th>Fan</th>
+                                    <th>Daraja</th>
+                                    <th>Savollar Soni</th>
+                                    <th>Vaqt</th>
+                                    <th>Harakatlar</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Results Section -->
+            <section id="results" class="content-section hidden">
+                <h2>Umumiy Natijalar</h2>
+                <div class="card">
+                    <div style="display: flex; gap: 10px; margin-bottom: 1rem; align-items: flex-end;">
+                        <div class="form-group" style="margin-bottom: 0; min-width: 250px;">
+                            <label>O'qituvchi bo'yicha filter</label>
+                            <select id="results-teacher-filter" class="form-control">
+                                <option value="all">Barchasi</option>
+                            </select>
+                        </div>
+                        <button id="btn-export-pdf" class="btn">PDF Yuklab Olish</button>
+                    </div>
+                    <div class="table-responsive">
+                        <table id="results-table">
+                            <thead>
+                                <tr>
+                                    <th>O'quvchi</th>
+                                    <th>Telefon</th>
+                                    <th>O'qituvchi</th>
+                                    <th>Daraja</th>
+                                    <th>Natija</th>
+                                    <th>Sana</th>
+                                    <th>Harakatlar</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+</div>
+
+<!-- Add Teacher Modal -->
+<div id="add-teacher-modal" class="modal">
+    <div class="modal-content">
+        <span class="close-modal" onclick="closeModal('add-teacher-modal')">&times;</span>
+        <h3>Yangi O'qituvchi Qo'shish</h3>
+        <form id="add-teacher-form">
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Ism</label>
+                    <input type="text" id="t-firstName" class="form-control" required>
+                </div>
+                <div class="form-group">
+                    <label>Familiya</label>
+                    <input type="text" id="t-lastName" class="form-control" required>
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Telefon Raqam</label>
+                    <input type="tel" id="t-phone" class="form-control" required>
+                </div>
+                <div class="form-group">
+                    <label>Fan (Faqat bittasini tanlang)</label>
+                    <select id="t-subjects" class="form-control" required>
+                        <option value="">Tanlang...</option>
+                        <option value="Ingliz tili">Ingliz tili</option>
+                        <option value="Matematika">Matematika</option>
+                        <option value="Ona tili">Ona tili</option>
+                        <option value="Fizika">Fizika</option>
+                        <option value="Tarix">Tarix</option>
+                        <option value="Kimyo">Kimyo</option>
+                        <option value="Biologiya">Biologiya</option>
+                        <option value="Geografiya">Geografiya</option>
+                        <option value="Informatika">Informatika</option>
+                        <option value="Adabiyot">Adabiyot</option>
+                        <option value="Rus tili">Rus tili</option>
+                    </select>
+                </div>
+            </div>
+            <button type="submit" class="btn" style="width: 100%;">Qo'shish</button>
+        </form>
+    </div>
+</div>
+
+<!-- Add Test Modal -->
+<div id="add-test-modal" class="modal">
+    <div class="modal-content">
+        <span class="close-modal" onclick="closeModal('add-test-modal')">&times;</span>
+        <h3>Yangi Test Yaratish (AI orqali)</h3>
+        <form id="generate-test-form">
+            <div class="form-row">
+                <div class="form-group">
+                    <label>O'qituvchini tanlang</label>
+                    <select id="gen-teacher" class="form-control" required></select>
+                </div>
+                <div class="form-group">
+                    <label>Fanni tanlang</label>
+                    <select id="gen-subject" class="form-control" required></select>
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Daraja</label>
+                    <select id="gen-level" class="form-control" required disabled>
+                        <option value="">Oldin fanni tanlang</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Test Soni</label>
+                    <input type="number" id="gen-count" class="form-control" value="50" disabled>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Test Vaqti</label>
+                <select id="gen-duration" class="form-control" required>
+                    <option value="30">30 daqiqa (Yarim soat)</option>
+                    <option value="45">45 daqiqa</option>
+                    <option value="60" selected>60 daqiqa (1 soat)</option>
+                    <option value="90">90 daqiqa (1.5 soat)</option>
+                    <option value="120">120 daqiqa (2 soat)</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>AI Promt (Qo'shimcha ko'rsatmalar)</label>
+                <textarea id="gen-prompt" class="form-control" rows="3" placeholder="Masalan: Test savollari qiziqarli bo'lsin..."></textarea>
+            </div>
+            <button type="submit" class="btn" style="width: 100%;">Test Yaratish (AI)</button>
+        </form>
+    </div>
+</div>
+
+<!-- Loading Overlay -->
+<div class="loading-overlay" id="loading">
+    <div class="spinner"></div>
+    <h2 style="color: var(--primary-color);">AI Test Yaratmoqda...</h2>
+    <p>Iltimos biroz kuting</p>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
