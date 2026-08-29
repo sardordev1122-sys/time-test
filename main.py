@@ -84,7 +84,7 @@ class GenerateTestRequest(BaseModel):
 
 @app.post("/api/generate-test")
 def generate_test_api(req: GenerateTestRequest):
-    api_key = os.environ.get("GEMINI_API_KEY", "AQ.Ab8RN6J9mE0AM7Et-dpmKDOOXbwPDSfuUa66RXTVfCqi1uX1Rg")
+    api_key = os.environ.get("GEMINI_API_KEY")
     if not api_key:
         raise HTTPException(status_code=500, detail="Serverda GEMINI_API_KEY sozlanmagan. Iltimos Railway'dan Variables qo'shing.")
         
@@ -105,7 +105,7 @@ Ensure correctAnswerIndex is an integer from 0 to 3."""
         )
 
         response = client.models.generate_content(
-            model='models/gemini-3-flash-preview',
+            model='gemini-3-flash-preview',
             contents=prompt,
             config=config,
         )
