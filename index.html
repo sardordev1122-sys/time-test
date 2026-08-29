@@ -85,7 +85,7 @@
                     </div>
                     <div class="form-group">
                         <label for="studentSubjectSelect">Fan</label>
-                        <select id="studentSubjectSelect" class="form-control" required disabled>
+                        <select id="studentSubjectSelect" class="form-control" required>
                             <option value="">Oldin o'qituvchini tanlang</option>
                         </select>
                     </div>
@@ -93,7 +93,7 @@
 
                 <div class="form-group">
                     <label for="levelSelect">Daraja</label>
-                    <select id="levelSelect" class="form-control" required disabled>
+                    <select id="levelSelect" class="form-control" required>
                         <option value="">Oldin fanni tanlang</option>
                     </select>
                 </div>
@@ -164,6 +164,9 @@
                 </li>
                 <li class="nav-item">
                     <a href="#" class="nav-link" data-target="teachers">O'qituvchilar</a>
+                </li>
+                <li class="nav-item">
+                    <a href="#" class="nav-link" data-target="subjects">Fanlar</a>
                 </li>
                 <li class="nav-item">
                     <a href="#" class="nav-link" data-target="tests">Testlar</a>
@@ -297,6 +300,28 @@
                 </div>
             </section>
 
+            <!-- Subjects Section -->
+            <section id="subjects" class="content-section hidden">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                    <h2>Fanlar</h2>
+                    <button class="btn" onclick="openModal('add-subject-modal')">+ Yangi Fan Qo'shish</button>
+                </div>
+                
+                <div class="card">
+                    <div class="table-responsive">
+                        <table id="subjects-table">
+                            <thead>
+                                <tr>
+                                    <th>Fan Nomi</th>
+                                    <th>Harakatlar</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
             <!-- Results Section -->
             <section id="results" class="content-section hidden">
                 <h2>Umumiy Natijalar</h2>
@@ -354,22 +379,26 @@
                     <input type="tel" id="t-phone" class="form-control" required>
                 </div>
                 <div class="form-group">
-                    <label>Fan (Faqat bittasini tanlang)</label>
-                    <select id="t-subjects" class="form-control" required>
+                    <label>Fanlar (Bir nechtasini tanlash uchun Ctrl/Cmd bosib turing)</label>
+                    <select id="t-subjects" class="form-control" multiple required style="min-height: 120px; padding: 10px;">
                         <option value="">Tanlang...</option>
-                        <option value="Ingliz tili">Ingliz tili</option>
-                        <option value="Matematika">Matematika</option>
-                        <option value="Ona tili">Ona tili</option>
-                        <option value="Fizika">Fizika</option>
-                        <option value="Tarix">Tarix</option>
-                        <option value="Kimyo">Kimyo</option>
-                        <option value="Biologiya">Biologiya</option>
-                        <option value="Geografiya">Geografiya</option>
-                        <option value="Informatika">Informatika</option>
-                        <option value="Adabiyot">Adabiyot</option>
-                        <option value="Rus tili">Rus tili</option>
                     </select>
                 </div>
+            </div>
+            <button type="submit" class="btn" style="width: 100%;">Qo'shish</button>
+        </form>
+    </div>
+</div>
+
+<!-- Add Subject Modal -->
+<div id="add-subject-modal" class="modal">
+    <div class="modal-content" style="max-width: 400px;">
+        <span class="close-modal" onclick="closeModal('add-subject-modal')">&times;</span>
+        <h3>Yangi Fan Qo'shish</h3>
+        <form id="add-subject-form">
+            <div class="form-group">
+                <label>Fan Nomi</label>
+                <input type="text" id="s-name" class="form-control" required>
             </div>
             <button type="submit" class="btn" style="width: 100%;">Qo'shish</button>
         </form>
@@ -395,7 +424,7 @@
             <div class="form-row">
                 <div class="form-group">
                     <label>Daraja</label>
-                    <select id="gen-level" class="form-control" required disabled>
+                    <select id="gen-level" class="form-control" required>
                         <option value="">Oldin fanni tanlang</option>
                     </select>
                 </div>

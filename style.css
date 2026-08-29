@@ -442,3 +442,29 @@ tr:hover {
   color: var(--text-dark);
   z-index: 2;
 }
+
+/* Responsiveness */
+@media (max-width: 768px) {
+  .form-row {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+  
+  .stats-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .admin-container {
+    flex-direction: column;
+  }
+  
+  .sidebar {
+    width: 100%;
+    min-height: auto;
+    padding: 1rem;
+  }
+  
+  .main-content {
+    padding: 1rem;
+  }
+}

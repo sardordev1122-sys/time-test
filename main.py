@@ -137,13 +137,14 @@ class AppStateSync(BaseModel):
     teachers: list = []
     tests: list = []
     results: list = []
+    subjects: list = []
 
 @app.get("/api/state")
 def get_state(db: Session = Depends(get_db)):
     state = db.query(models.AppStateDB).filter(models.AppStateDB.id == 1).first()
     if state and state.state_json:
         return json.loads(state.state_json)
-    return {"teachers": [], "tests": [], "results": []}
+    return {"teachers": [], "tests": [], "results": [], "subjects": []}
 
 @app.post("/api/state")
 def save_state(state: AppStateSync, db: Session = Depends(get_db)):

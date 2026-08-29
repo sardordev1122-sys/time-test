@@ -1,17 +1,22 @@
 let data = {
     teachers: [],
     tests: [],
-    results: []
+    results: [],
+    subjects: []
 };
 
 async function loadDataFromBackend() {
     try {
-        const res = await fetch('/api/state');
+        const res = await fetch('/api/state', { cache: 'no-store' });
         if (res.ok) {
             const serverData = await res.json();
             data.teachers = serverData.teachers || [];
             data.tests = serverData.tests || [];
             data.results = serverData.results || [];
+            data.subjects = serverData.subjects || [
+                "Ingliz tili", "Matematika", "Ona tili", "Fizika", "Tarix", 
+                "Kimyo", "Biologiya", "Geografiya", "Informatika", "Adabiyot", "Rus tili"
+            ];
             
             updateDashboardStats();
             renderTeachersTable();
@@ -130,7 +135,6 @@ document.addEventListener('DOMContentLoaded', () => {
         
         subjectSelect.innerHTML = '<option value="">Tanlang...</option>';
         levelSelect.innerHTML = '<option value="">Oldin fanni tanlang</option>';
-        levelSelect.disabled = true;
         
         if (teacherId) {
             const teacher = data.teachers.find(t => t.id == teacherId);
@@ -141,7 +145,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     option.textContent = sub;
                     subjectSelect.appendChild(option);
                 });
-                subjectSelect.disabled = false;
                 
                 // Auto-select if only 1 subject
                 if (teacher.subjects.length === 1) {
@@ -150,7 +153,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
         } else {
-            subjectSelect.disabled = true;
+            subjectSelect.innerHTML = '<option value="">Oldin o\'qituvchini tanlang</option>';
         }
     });
 
@@ -206,13 +209,16 @@ function handleStartTest(e) {
     const subject = document.getElementById('studentSubjectSelect').value;
     const level = document.getElementById('levelSelect').value;
     
-    // Check if test exists
-    currentTest = data.tests.find(t => t.teacherId === teacherId && t.subject === subject && t.level === level);
+    // Check if tests exist
+    const matchingTests = data.tests.filter(t => t.teacherId === teacherId && t.subject === subject && t.level === level);
     
-    if (!currentTest) {
+    if (matchingTests.length === 0) {
         alert(`Kechirasiz, ushbu o'qituvchi tomonidan ${subject} fanidan ${level} daraja uchun hozircha test yaratilmagan!`);
         return;
     }
+    
+    // Pick a random test variant to prevent cheating if there are multiple variants
+    currentTest = matchingTests[Math.floor(Math.random() * matchingTests.length)];
     
     currentStudent = {
         firstName,
@@ -401,6 +407,7 @@ function animateValue(id, start, end, duration) {
 function initAdminPanel() {
     updateDashboardStats();
     renderTeachersTable();
+    renderSubjectsTable();
     renderTestsTable();
     populateTeacherSelectsAdmin();
     renderResultsTable();
@@ -428,6 +435,7 @@ function initAdminPanel() {
 
     // Form Submissions
     document.getElementById('add-teacher-form').addEventListener('submit', handleAddTeacher);
+    document.getElementById('add-subject-form').addEventListener('submit', handleAddSubject);
     document.getElementById('generate-test-form').addEventListener('submit', handleGenerateTest);
     
     // Select Change Event
@@ -438,7 +446,6 @@ function initAdminPanel() {
         
         subjectSelect.innerHTML = '<option value="">Tanlang...</option>';
         levelSelect.innerHTML = '<option value="">Oldin fanni tanlang</option>';
-        levelSelect.disabled = true;
         
         if (teacherId) {
             const teacher = data.teachers.find(t => t.id == teacherId);
@@ -524,12 +531,12 @@ function handleAddTeacher(e) {
     const lastName = document.getElementById('t-lastName').value;
     const phone = document.getElementById('t-phone').value;
     
-    // Get selected subject
-    const subject = document.getElementById('t-subjects').value;
-    const subjects = [subject];
+    // Get selected subjects
+    const subjectSelect = document.getElementById('t-subjects');
+    const subjects = Array.from(subjectSelect.selectedOptions).map(opt => opt.value).filter(v => v !== "");
     
-    if (!subject) {
-        alert("Iltimos, fanni belgilang!");
+    if (subjects.length === 0) {
+        alert("Iltimos, kamida bitta fanni belgilang!");
         return;
     }
     
@@ -580,6 +587,51 @@ function deleteTeacher(id) {
     }
 }
 
+function handleAddSubject(e) {
+    e.preventDefault();
+    const name = document.getElementById('s-name').value.trim();
+    if (!name) return;
+    
+    if (data.subjects.includes(name)) {
+        alert("Bu fan allaqachon mavjud!");
+        return;
+    }
+    
+    data.subjects.push(name);
+    saveData();
+    renderSubjectsTable();
+    populateTeacherSelectsAdmin();
+    e.target.reset();
+    closeModal('add-subject-modal');
+    alert("Fan muvaffaqiyatli qo'shildi!");
+}
+
+function renderSubjectsTable() {
+    const tbody = document.querySelector('#subjects-table tbody');
+    if (!tbody) return;
+    tbody.innerHTML = '';
+    
+    data.subjects.forEach(subject => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td>${subject}</td>
+            <td>
+                <button class="btn btn-danger" style="padding: 5px 10px; font-size: 0.8rem;" onclick="deleteSubject('${subject}')">O'chirish</button>
+            </td>
+        `;
+        tbody.appendChild(tr);
+    });
+}
+
+function deleteSubject(subject) {
+    if (confirm("Rostdan ham bu fanni o'chirmoqchimisiz?")) {
+        data.subjects = data.subjects.filter(s => s !== subject);
+        saveData();
+        renderSubjectsTable();
+        populateTeacherSelectsAdmin();
+    }
+}
+
 async function handleGenerateTest(e) {
     e.preventDefault();
     
@@ -596,7 +648,7 @@ async function handleGenerateTest(e) {
     
     const testExists = data.tests.find(t => t.teacherId === teacherId && t.subject === subject && t.level === level);
     if(testExists) {
-        if(!confirm("Ushbu daraja va fan uchun test allaqachon mavjud. Yangidan yaratmoqchimisiz? (Eski test o'chiriladi)")) {
+        if(!confirm("Ushbu daraja va fan uchun test allaqachon mavjud. Yana bitta variant yaratmoqchimisiz? (O'quvchilarga tasodifiy variant tushadi)")) {
             return;
         }
     }
@@ -634,7 +686,7 @@ async function handleGenerateTest(e) {
             throw new Error("Yaratilgan savollar ro'yxati bo'sh yoki noto'g'ri.");
         }
 
-        data.tests = data.tests.filter(t => !(t.teacherId === teacherId && t.subject === subject && t.level === level));
+        // No longer deleting old tests to allow multiple variants
         
         const newTest = {
             id: Date.now().toString(),
@@ -877,6 +929,17 @@ function populateTeacherSelectsAdmin() {
             filterSelect.appendChild(option);
         });
     }
+    
+    const subjectSelect = document.getElementById('t-subjects');
+    if (subjectSelect) {
+        subjectSelect.innerHTML = '<option value="">Tanlang...</option>';
+        data.subjects.forEach(s => {
+            const option = document.createElement('option');
+            option.value = s;
+            option.textContent = s;
+            subjectSelect.appendChild(option);
+        });
+    }
 }
 
 // Make globally available for inline onclick attributes
@@ -888,3 +951,4 @@ window.deleteTeacher = deleteTeacher;
 window.viewTeacherStudents = viewTeacherStudents;
 window.deleteTest = deleteTest;
 window.deleteResult = deleteResult;
+window.deleteSubject = deleteSubject;
