@@ -83,7 +83,7 @@ class GenerateTestRequest(BaseModel):
 
 @app.post("/api/generate-test")
 def generate_test_api(req: GenerateTestRequest):
-    api_key = os.environ.get("GEMINI_API_KEY")
+    api_key = os.environ.get("GEMINI_API_KEY", "AQ.Ab8RN6JKlUTqCEoyU9bXFuv0XnjCZCO0OvKYVhftxk6qjOlruw")
     if not api_key:
         raise HTTPException(status_code=500, detail="Serverda GEMINI_API_KEY sozlanmagan. Iltimos Railway'dan Variables qo'shing.")
     
