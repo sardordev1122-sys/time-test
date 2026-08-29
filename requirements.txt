@@ -4,4 +4,4 @@ sqlalchemy
 psycopg2-binary
 pydantic
 python-dotenv
-google-generativeai
+requests
