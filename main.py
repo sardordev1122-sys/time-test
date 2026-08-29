@@ -7,7 +7,7 @@ from typing import List
 import os
 import json
 import re
-from google import genai
+import google.generativeai as genai
 import models
 import schemas
 from database import engine, get_db
@@ -83,10 +83,15 @@ class GenerateTestRequest(BaseModel):
 
 @app.post("/api/generate-test")
 def generate_test_api(req: GenerateTestRequest):
-    api_key = "AQ.Ab8RN6JRRftMVUhNY8nAg-UeFNM1K8aky6uQF3b2JK68ebEkyQ"
+    api_key = os.environ.get("GEMINI_API_KEY")
+    if not api_key:
+        raise HTTPException(status_code=500, detail="Serverda GEMINI_API_KEY sozlanmagan. Iltimos Railway'dan Variables qo'shing.")
+    
+    api_key = api_key.strip()
         
     try:
-        client = genai.Client(api_key=api_key)
+        genai.configure(api_key=api_key)
+        model = genai.GenerativeModel('gemini-1.5-flash')
         
         prompt = f"""Generate exactly 50 multiple-choice questions for {req.subject} at {req.level} level in Uzbek language. 
 Additional instructions: {req.promptText}.
@@ -95,27 +100,8 @@ Each object must have this exact structure:
 {{"question": "Question text here?", "options": ["Option 1", "Option 2", "Option 3", "Option 4"], "correctAnswerIndex": 0}}
 Ensure correctAnswerIndex is an integer from 0 to 3."""
 
-        tools = [{'type': 'google_search'}]
-
-        generation_config = {
-            'temperature': 1,
-            'max_output_tokens': 65536,
-            'top_p': 0.95,
-            'thinking_level': 'high',
-        }
-
-        interaction = client.interactions.create(
-            model='models/gemini-3-flash-preview',
-            input=prompt,
-            tools=tools,
-            generation_config=generation_config,
-        )
-        
-        ai_text = str(interaction.steps[-1])
-        if hasattr(interaction, 'text') and interaction.text:
-            ai_text = interaction.text
-        elif hasattr(interaction.steps[-1], 'text') and interaction.steps[-1].text:
-            ai_text = interaction.steps[-1].text
+        response = model.generate_content(prompt)
+        ai_text = response.text
         
         match = re.search(r'\[[\s\S]*\]', ai_text)
         if match:
