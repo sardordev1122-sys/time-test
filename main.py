@@ -7,8 +7,7 @@ from typing import List
 import os
 import json
 import re
-from google import genai
-from google.genai import types
+import google.generativeai as genai
 import models
 import schemas
 from database import engine, get_db
@@ -87,9 +86,14 @@ def generate_test_api(req: GenerateTestRequest):
     api_key = os.environ.get("GEMINI_API_KEY")
     if not api_key:
         raise HTTPException(status_code=500, detail="Serverda GEMINI_API_KEY sozlanmagan. Iltimos Railway'dan Variables qo'shing.")
+    
+    api_key = api_key.strip()
+    if not api_key.startswith("AIzaSy"):
+        raise HTTPException(status_code=500, detail="Siz kiritgan API kalit xato! Gemini API kaliti 'AIzaSy' bilan boshlanishi kerak. Iltimos, aistudio.google.com saytidan to'g'ri kalit oling.")
         
     try:
-        client = genai.Client(api_key=api_key)
+        genai.configure(api_key=api_key)
+        model = genai.GenerativeModel('gemini-1.5-flash')
         
         prompt = f"""Generate exactly 50 multiple-choice questions for {req.subject} at {req.level} level in Uzbek language. 
 Additional instructions: {req.promptText}.
@@ -98,18 +102,7 @@ Each object must have this exact structure:
 {{"question": "Question text here?", "options": ["Option 1", "Option 2", "Option 3", "Option 4"], "correctAnswerIndex": 0}}
 Ensure correctAnswerIndex is an integer from 0 to 3."""
 
-        config = types.GenerateContentConfig(
-            temperature=1,
-            max_output_tokens=65536,
-            top_p=0.95,
-        )
-
-        response = client.models.generate_content(
-            model='gemini-3-flash-preview',
-            contents=prompt,
-            config=config,
-        )
-        
+        response = model.generate_content(prompt)
         ai_text = response.text
         
         match = re.search(r'\[[\s\S]*\]', ai_text)
