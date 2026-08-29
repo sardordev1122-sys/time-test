@@ -9,6 +9,8 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
+    <!-- Phosphor Icons for Premium UI -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
 </head>
 <body>
 
@@ -85,9 +87,7 @@
                     </div>
                     <div class="form-group">
                         <label for="studentSubjectSelect">Fan</label>
-                        <select id="studentSubjectSelect" class="form-control" required>
-                            <option value="">Oldin o'qituvchini tanlang</option>
-                        </select>
+                        <input type="text" id="studentSubjectSelect" class="form-control" placeholder="Oldin o'qituvchini tanlang" readonly required>
                     </div>
                 </div>
 
@@ -160,23 +160,23 @@
             <div class="sidebar-logo">Time <span>School</span></div>
             <ul class="nav-menu">
                 <li class="nav-item">
-                    <a href="#" class="nav-link active" data-target="dashboard">Dashboard</a>
+                    <a href="#" class="nav-link active" data-target="dashboard"><i class="ph ph-squares-four"></i> Dashboard</a>
                 </li>
                 <li class="nav-item">
-                    <a href="#" class="nav-link" data-target="teachers">O'qituvchilar</a>
+                    <a href="#" class="nav-link" data-target="teachers"><i class="ph ph-chalkboard-teacher"></i> O'qituvchilar</a>
                 </li>
                 <li class="nav-item">
-                    <a href="#" class="nav-link" data-target="subjects">Fanlar</a>
+                    <a href="#" class="nav-link" data-target="subjects"><i class="ph ph-books"></i> Fanlar</a>
                 </li>
                 <li class="nav-item">
-                    <a href="#" class="nav-link" data-target="tests">Testlar</a>
+                    <a href="#" class="nav-link" data-target="tests"><i class="ph ph-exam"></i> Testlar</a>
                 </li>
                 <li class="nav-item">
-                    <a href="#" class="nav-link" data-target="results">Natijalar</a>
+                    <a href="#" class="nav-link" data-target="results"><i class="ph ph-chart-bar"></i> Natijalar</a>
                 </li>
                 <li class="nav-item" style="margin-top: 2rem;">
                     <a href="#" class="nav-link" style="color: var(--danger);" onclick="location.reload()">
-                        Bosh sahifaga qaytish
+                        <i class="ph ph-sign-out"></i> Bosh sahifaga qaytish
                     </a>
                 </li>
             </ul>
@@ -188,21 +188,21 @@
                 <h2>Dashboard</h2>
                 <div class="stats-grid">
                     <div class="stat-card">
-                        <div class="stat-icon">👥</div>
+                        <div class="stat-icon"><i class="ph ph-users"></i></div>
                         <div class="stat-info">
                             <h3 id="stat-total-students">0</h3>
                             <p>Jami o'quvchilar</p>
                         </div>
                     </div>
                     <div class="stat-card">
-                        <div class="stat-icon">📝</div>
+                        <div class="stat-icon"><i class="ph ph-file-text"></i></div>
                         <div class="stat-info">
                             <h3 id="stat-total-tests">0</h3>
                             <p>Yechilgan testlar</p>
                         </div>
                     </div>
                     <div class="stat-card">
-                        <div class="stat-icon">👨‍🏫</div>
+                        <div class="stat-icon"><i class="ph ph-chalkboard-teacher"></i></div>
                         <div class="stat-info">
                             <h3 id="stat-total-teachers">0</h3>
                             <p>O'qituvchilar</p>
@@ -379,10 +379,18 @@
                     <input type="tel" id="t-phone" class="form-control" required>
                 </div>
                 <div class="form-group">
-                    <label>Fanlar (Bir nechtasini tanlash uchun Ctrl/Cmd bosib turing)</label>
-                    <select id="t-subjects" class="form-control" multiple required style="min-height: 120px; padding: 10px;">
-                        <option value="">Tanlang...</option>
-                    </select>
+                    <label>Fan</label>
+                    <div class="custom-select-wrapper" id="custom-subjects-wrapper">
+                        <div class="custom-select-display" onclick="toggleSubjectDropdown()">
+                            <div class="chips-container" id="custom-select-chips">
+                                <span class="placeholder-text">Tanlang...</span>
+                            </div>
+                            <span class="custom-select-arrow"><i class="ph ph-caret-down"></i></span>
+                        </div>
+                        <div class="custom-select-options" id="t-subjects-options">
+                            <!-- checkboxes will be populated here by JS -->
+                        </div>
+                    </div>
                 </div>
             </div>
             <button type="submit" class="btn" style="width: 100%;">Qo'shish</button>

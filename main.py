@@ -7,8 +7,8 @@ from typing import List
 import os
 import json
 import re
-import google.generativeai as genai
-
+from google import genai
+from google.genai import types
 import models
 import schemas
 from database import engine, get_db
@@ -84,13 +84,12 @@ class GenerateTestRequest(BaseModel):
 
 @app.post("/api/generate-test")
 def generate_test_api(req: GenerateTestRequest):
-    api_key = os.environ.get("GEMINI_API_KEY")
+    api_key = os.environ.get("GEMINI_API_KEY", "AQ.Ab8RN6J9mE0AM7Et-dpmKDOOXbwPDSfuUa66RXTVfCqi1uX1Rg")
     if not api_key:
         raise HTTPException(status_code=500, detail="Serverda GEMINI_API_KEY sozlanmagan. Iltimos Railway'dan Variables qo'shing.")
         
     try:
-        genai.configure(api_key=api_key)
-        model = genai.GenerativeModel('gemini-3-flash-preview')
+        client = genai.Client(api_key=api_key)
         
         prompt = f"""Generate exactly 50 multiple-choice questions for {req.subject} at {req.level} level in Uzbek language. 
 Additional instructions: {req.promptText}.
@@ -99,7 +98,18 @@ Each object must have this exact structure:
 {{"question": "Question text here?", "options": ["Option 1", "Option 2", "Option 3", "Option 4"], "correctAnswerIndex": 0}}
 Ensure correctAnswerIndex is an integer from 0 to 3."""
 
-        response = model.generate_content(prompt)
+        config = types.GenerateContentConfig(
+            temperature=1,
+            max_output_tokens=65536,
+            top_p=0.95,
+        )
+
+        response = client.models.generate_content(
+            model='models/gemini-3-flash-preview',
+            contents=prompt,
+            config=config,
+        )
+        
         ai_text = response.text
         
         match = re.search(r'\[[\s\S]*\]', ai_text)
@@ -109,6 +119,7 @@ Ensure correctAnswerIndex is an integer from 0 to 3."""
         questions = json.loads(ai_text)
         return {"questions": questions}
     except Exception as e:
+        print("AI generation xatosi:", str(e))
         raise HTTPException(status_code=500, detail=str(e))
 
 # --- RESULTS ---

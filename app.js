@@ -5,25 +5,55 @@ let data = {
     subjects: []
 };
 
+let lastDataString = "";
+
 async function loadDataFromBackend() {
     try {
         const res = await fetch('/api/state', { cache: 'no-store' });
         if (res.ok) {
             const serverData = await res.json();
-            data.teachers = serverData.teachers || [];
-            data.tests = serverData.tests || [];
-            data.results = serverData.results || [];
-            data.subjects = serverData.subjects || [
-                "Ingliz tili", "Matematika", "Ona tili", "Fizika", "Tarix", 
-                "Kimyo", "Biologiya", "Geografiya", "Informatika", "Adabiyot", "Rus tili"
+            
+            let defaultSubjects = [
+                "Ingliz tili", "Rus tili", "Kores tili", "Arab tili", "Kimyo", "Biologiya",
+                "Matematika", "Ona tili", "Fizika", "Tarix", "Geografiya", "Informatika", "Adabiyot"
             ];
             
-            updateDashboardStats();
-            renderTeachersTable();
-            renderTestsTable();
-            renderResultsTable();
-            populateTeacherSelectsAdmin();
-            populateTeachersForStudent();
+            let newSubjects;
+            if (serverData.subjects && serverData.subjects.length > 0) {
+                newSubjects = Array.from(new Set([...defaultSubjects, ...serverData.subjects]));
+            } else {
+                newSubjects = defaultSubjects;
+            }
+            
+            const newData = {
+                teachers: serverData.teachers || [],
+                tests: serverData.tests || [],
+                results: serverData.results || [],
+                subjects: newSubjects
+            };
+            
+            const newDataString = JSON.stringify(newData);
+            if (newDataString !== lastDataString) {
+                data = newData;
+                lastDataString = newDataString;
+                
+                // Only update UI if something actually changed
+                if (typeof updateDashboardStats === 'function') updateDashboardStats();
+                if (typeof renderTeachersTable === 'function') renderTeachersTable();
+                if (typeof renderTestsTable === 'function') renderTestsTable();
+                if (typeof renderResultsTable === 'function') renderResultsTable();
+                
+                // Only update admin selects if no modal is currently open (prevents resetting user input)
+                const isAnyModalActive = document.querySelector('.modal.active');
+                if (!isAnyModalActive && typeof populateTeacherSelectsAdmin === 'function') {
+                    populateTeacherSelectsAdmin();
+                }
+                
+                // Update student selects if they are in the registration view
+                if (!currentStudent && typeof populateTeachersForStudent === 'function') {
+                    populateTeachersForStudent();
+                }
+            }
         }
     } catch(e) {
         console.error("Backenddan ma'lumot olishda xatolik:", e);
@@ -96,6 +126,7 @@ function closeAdminLogin() {
 
 document.addEventListener('DOMContentLoaded', () => {
     loadDataFromBackend();
+    setInterval(loadDataFromBackend, 5000); // Polling every 5 seconds
     
     // Mode Selection
     document.getElementById('btn-student-mode').addEventListener('click', () => {
@@ -130,51 +161,31 @@ document.addEventListener('DOMContentLoaded', () => {
     
     document.getElementById('teacherSelect').addEventListener('change', function() {
         const teacherId = this.value;
-        const subjectSelect = document.getElementById('studentSubjectSelect');
+        const subjectInput = document.getElementById('studentSubjectSelect');
         const levelSelect = document.getElementById('levelSelect');
         
-        subjectSelect.innerHTML = '<option value="">Tanlang...</option>';
+        subjectInput.value = '';
         levelSelect.innerHTML = '<option value="">Oldin fanni tanlang</option>';
+        levelSelect.disabled = true;
         
         if (teacherId) {
             const teacher = data.teachers.find(t => t.id == teacherId);
-            if (teacher) {
-                teacher.subjects.forEach(sub => {
-                    const option = document.createElement('option');
-                    option.value = sub;
-                    option.textContent = sub;
-                    subjectSelect.appendChild(option);
-                });
+            if (teacher && teacher.subjects && teacher.subjects.length > 0) {
+                const subject = teacher.subjects[0];
+                subjectInput.value = subject;
                 
-                // Auto-select if only 1 subject
-                if (teacher.subjects.length === 1) {
-                    subjectSelect.value = teacher.subjects[0];
-                    subjectSelect.dispatchEvent(new Event('change'));
-                }
+                levelSelect.innerHTML = '<option value="">Tanlang...</option>';
+                const levels = getLevelsForSubject(subject);
+                levels.forEach(lvl => {
+                    const option = document.createElement('option');
+                    option.value = lvl;
+                    option.textContent = lvl;
+                    levelSelect.appendChild(option);
+                });
+                levelSelect.disabled = false;
             }
         } else {
-            subjectSelect.innerHTML = '<option value="">Oldin o\'qituvchini tanlang</option>';
-        }
-    });
-
-    document.getElementById('studentSubjectSelect').addEventListener('change', function() {
-        const subject = this.value;
-        const levelSelect = document.getElementById('levelSelect');
-        
-        levelSelect.innerHTML = '<option value="">Tanlang...</option>';
-        
-        if (subject) {
-            const levels = getLevelsForSubject(subject);
-            levels.forEach(lvl => {
-                const option = document.createElement('option');
-                option.value = lvl;
-                option.textContent = lvl;
-                levelSelect.appendChild(option);
-            });
-            levelSelect.disabled = false;
-        } else {
-            levelSelect.innerHTML = '<option value="">Oldin fanni tanlang</option>';
-            levelSelect.disabled = true;
+            subjectInput.value = '';
         }
     });
     
@@ -182,6 +193,12 @@ document.addEventListener('DOMContentLoaded', () => {
     window.onclick = function(event) {
         if (event.target.classList.contains('modal')) {
             event.target.classList.remove('active');
+        }
+        
+        // Close custom dropdown if clicked outside
+        if (!event.target.closest('#custom-subjects-wrapper')) {
+            const options = document.getElementById('t-subjects-options');
+            if (options) options.classList.remove('active');
         }
     }
 });
@@ -520,7 +537,7 @@ function updateDashboardStats() {
             recentTbody.appendChild(tr);
         });
         if(recentResults.length === 0) {
-            recentTbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding: 2rem;">Hozircha natijalar yo\'q</td></tr>';
+            recentTbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding: 3rem;"><i class="ph ph-folder-open" style="font-size: 3rem; color: var(--text-light); margin-bottom: 1rem; display: block;"></i><p style="color: var(--text-light); font-size: 1.1rem;">Hozircha natijalar yo\'q</p></td></tr>';
         }
     }
 }
@@ -531,14 +548,15 @@ function handleAddTeacher(e) {
     const lastName = document.getElementById('t-lastName').value;
     const phone = document.getElementById('t-phone').value;
     
-    // Get selected subjects
-    const subjectSelect = document.getElementById('t-subjects');
-    const subjects = Array.from(subjectSelect.selectedOptions).map(opt => opt.value).filter(v => v !== "");
+    // Get selected subject
+    const selectedValue = document.getElementById('custom-select-chips').getAttribute('data-selected-value');
     
-    if (subjects.length === 0) {
-        alert("Iltimos, kamida bitta fanni belgilang!");
+    if (!selectedValue) {
+        alert("Iltimos, fanni tanlang!");
         return;
     }
+    
+    const subjects = [selectedValue];
     
     const newTeacher = {
         id: Date.now().toString(),
@@ -561,6 +579,11 @@ function handleAddTeacher(e) {
 function renderTeachersTable() {
     const tbody = document.querySelector('#teachers-table tbody');
     tbody.innerHTML = '';
+    
+    if (data.teachers.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding: 3rem;"><i class="ph ph-users-slash" style="font-size: 3rem; color: var(--text-light); margin-bottom: 1rem; display: block;"></i><p style="color: var(--text-light); font-size: 1.1rem;">Hozircha o\'qituvchilar yo\'q</p></td></tr>';
+        return;
+    }
     
     data.teachers.forEach(teacher => {
         const tr = document.createElement('tr');
@@ -610,6 +633,11 @@ function renderSubjectsTable() {
     const tbody = document.querySelector('#subjects-table tbody');
     if (!tbody) return;
     tbody.innerHTML = '';
+    
+    if (data.subjects.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="2" style="text-align:center; padding: 3rem;"><i class="ph ph-books" style="font-size: 3rem; color: var(--text-light); margin-bottom: 1rem; display: block;"></i><p style="color: var(--text-light); font-size: 1.1rem;">Hozircha fanlar yo\'q</p></td></tr>';
+        return;
+    }
     
     data.subjects.forEach(subject => {
         const tr = document.createElement('tr');
@@ -717,6 +745,11 @@ function renderTestsTable() {
     const tbody = document.querySelector('#tests-table tbody');
     tbody.innerHTML = '';
     
+    if (data.tests.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding: 3rem;"><i class="ph ph-exam" style="font-size: 3rem; color: var(--text-light); margin-bottom: 1rem; display: block;"></i><p style="color: var(--text-light); font-size: 1.1rem;">Hozircha testlar yo\'q</p></td></tr>';
+        return;
+    }
+    
     data.tests.forEach(test => {
         const teacher = data.teachers.find(t => t.id === test.teacherId);
         const teacherName = teacher ? `${teacher.firstName} ${teacher.lastName}` : 'Noma\'lum';
@@ -757,6 +790,11 @@ function renderResultsTable() {
     }
     
     const sortedResults = [...filteredResults].sort((a, b) => new Date(b.date) - new Date(a.date));
+    
+    if (sortedResults.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding: 3rem;"><i class="ph ph-folder-open" style="font-size: 3rem; color: var(--text-light); margin-bottom: 1rem; display: block;"></i><p style="color: var(--text-light); font-size: 1.1rem;">Hozircha natijalar yo\'q</p></td></tr>';
+        return;
+    }
     
     sortedResults.forEach(res => {
         const teacher = data.teachers.find(t => t.id === res.teacherId);
@@ -802,6 +840,10 @@ function viewTeacherStudents(teacherId) {
     tbody.innerHTML = '';
     
     const teacherResults = data.results.filter(r => r.teacherId === teacherId);
+    
+    if (teacherResults.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding: 3rem;"><i class="ph ph-user-minus" style="font-size: 3rem; color: var(--text-light); margin-bottom: 1rem; display: block;"></i><p style="color: var(--text-light); font-size: 1.1rem;">Bu o\'qituvchida hozircha o\'quvchilar yo\'q</p></td></tr>';
+    }
     
     teacherResults.forEach(res => {
         const date = new Date(res.date).toLocaleString();
@@ -882,7 +924,16 @@ function exportResultsToPDF() {
     doc.setFont("helvetica", "bold");
     doc.text("Time School - Umumiy Natijalar", 14, 20);
     
-    const tableData = data.results.map(res => {
+    const filterSelect = document.getElementById('results-teacher-filter');
+    const filterId = filterSelect ? filterSelect.value : 'all';
+    
+    let filteredResults = data.results;
+    if (filterId !== 'all') {
+        filteredResults = filteredResults.filter(r => r.teacherId === filterId);
+    }
+    const sortedResults = [...filteredResults].sort((a, b) => new Date(b.date) - new Date(a.date));
+    
+    const tableData = sortedResults.map(res => {
         const teacher = data.teachers.find(t => t.id === res.teacherId);
         const teacherName = teacher ? `${teacher.firstName} ${teacher.lastName}` : 'Noma\'lum';
         return [
@@ -930,15 +981,23 @@ function populateTeacherSelectsAdmin() {
         });
     }
     
-    const subjectSelect = document.getElementById('t-subjects');
+    const subjectSelect = document.getElementById('t-subjects-options');
     if (subjectSelect) {
-        subjectSelect.innerHTML = '<option value="">Tanlang...</option>';
+        subjectSelect.innerHTML = '';
         data.subjects.forEach(s => {
-            const option = document.createElement('option');
-            option.value = s;
-            option.textContent = s;
-            subjectSelect.appendChild(option);
+            const div = document.createElement('div');
+            div.className = 'custom-select-option';
+            div.setAttribute('data-value', s);
+            div.textContent = s;
+            subjectSelect.appendChild(div);
         });
+        
+        // Reset selection UI
+        const chipsContainer = document.getElementById('custom-select-chips');
+        if (chipsContainer) {
+            chipsContainer.innerHTML = '<span class="placeholder-text">Tanlang...</span>';
+            chipsContainer.removeAttribute('data-selected-value');
+        }
     }
 }
 
@@ -952,3 +1011,36 @@ window.viewTeacherStudents = viewTeacherStudents;
 window.deleteTest = deleteTest;
 window.deleteResult = deleteResult;
 window.deleteSubject = deleteSubject;
+
+window.toggleSubjectDropdown = function() {
+    document.getElementById('t-subjects-options').classList.toggle('active');
+}
+
+// Handle single option selection
+document.addEventListener('click', function(e) {
+    if (e.target && e.target.closest('.custom-select-option')) {
+        const option = e.target.closest('.custom-select-option');
+        const val = option.getAttribute('data-value');
+        const text = option.textContent;
+        
+        // Update display with selected text
+        const chipsContainer = document.getElementById('custom-select-chips');
+        chipsContainer.innerHTML = `<span class="selected-text" style="font-weight: 600; color: var(--text-dark);">${text}</span>`;
+        chipsContainer.setAttribute('data-selected-value', val);
+        
+        // Remove active class from all options
+        document.querySelectorAll('.custom-select-option').forEach(opt => opt.classList.remove('selected-option'));
+        option.classList.add('selected-option');
+        
+        // Close dropdown
+        const dropdown = document.getElementById('t-subjects-options');
+        if (dropdown) dropdown.classList.remove('active');
+        
+    } else if (!e.target.closest('.custom-select-wrapper')) {
+        // Close if clicked outside
+        const dropdown = document.getElementById('t-subjects-options');
+        if (dropdown && dropdown.classList.contains('active')) {
+            dropdown.classList.remove('active');
+        }
+    }
+});
