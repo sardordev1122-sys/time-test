@@ -83,7 +83,7 @@ class GenerateTestRequest(BaseModel):
 
 @app.post("/api/generate-test")
 def generate_test_api(req: GenerateTestRequest):
-    api_key = "AQ.Ab8RN6JRRftMVUhNY8nAg-UeFNM1K8aky6uQF3b2JK68ebEkyQ"
+    api_key = "AQ.Ab8RN6Jpn9naa6a9WOX413Ux4_lYD6z7A6Yrob3oOBmRp9PN1g"
         
     try:
         prompt = f"""Generate exactly 50 multiple-choice questions for {req.subject} at {req.level} level in Uzbek language. 
