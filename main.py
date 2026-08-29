@@ -83,12 +83,9 @@ class GenerateTestRequest(BaseModel):
 
 @app.post("/api/generate-test")
 def generate_test_api(req: GenerateTestRequest):
-    api_key = os.environ.get("GEMINI_API_KEY")
-    if not api_key:
-        raise HTTPException(status_code=500, detail="Serverda GEMINI_API_KEY sozlanmagan. Iltimos Railway'dan Variables qo'shing.")
+    # Hardcoding the API key since Railway environment variables are causing format corruption for the user
+    api_key = "AQ.Ab8RN6Jpn9naa6a9WOX413Ux4_lYD6z7A6Yrob3oOBmRp9PN1g"
     
-    api_key = api_key.strip()
-        
     try:
         prompt = f"""Generate exactly 50 multiple-choice questions for {req.subject} at {req.level} level in Uzbek language. 
 Additional instructions: {req.promptText}.
