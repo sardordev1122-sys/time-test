@@ -7,7 +7,7 @@ from typing import List
 import os
 import json
 import re
-import google.generativeai as genai
+from google import genai
 import models
 import schemas
 from database import engine, get_db
@@ -88,12 +88,9 @@ def generate_test_api(req: GenerateTestRequest):
         raise HTTPException(status_code=500, detail="Serverda GEMINI_API_KEY sozlanmagan. Iltimos Railway'dan Variables qo'shing.")
     
     api_key = api_key.strip()
-    if not api_key.startswith("AIzaSy"):
-        raise HTTPException(status_code=500, detail="Siz kiritgan API kalit xato! Gemini API kaliti 'AIzaSy' bilan boshlanishi kerak. Iltimos, aistudio.google.com saytidan to'g'ri kalit oling.")
         
     try:
-        genai.configure(api_key=api_key)
-        model = genai.GenerativeModel('gemini-1.5-flash')
+        client = genai.Client(api_key=api_key)
         
         prompt = f"""Generate exactly 50 multiple-choice questions for {req.subject} at {req.level} level in Uzbek language. 
 Additional instructions: {req.promptText}.
@@ -102,8 +99,28 @@ Each object must have this exact structure:
 {{"question": "Question text here?", "options": ["Option 1", "Option 2", "Option 3", "Option 4"], "correctAnswerIndex": 0}}
 Ensure correctAnswerIndex is an integer from 0 to 3."""
 
-        response = model.generate_content(prompt)
-        ai_text = response.text
+        tools = [{'type': 'google_search'}]
+
+        generation_config = {
+            'temperature': 1,
+            'max_output_tokens': 65536,
+            'top_p': 0.95,
+            'thinking_level': 'high',
+        }
+
+        interaction = client.interactions.create(
+            model='models/gemini-3-flash-preview',
+            input=prompt,
+            tools=tools,
+            generation_config=generation_config,
+        )
+        
+        # Try to parse the text response
+        ai_text = str(interaction.steps[-1])
+        if hasattr(interaction, 'text') and interaction.text:
+            ai_text = interaction.text
+        elif hasattr(interaction.steps[-1], 'text') and interaction.steps[-1].text:
+            ai_text = interaction.steps[-1].text
         
         match = re.search(r'\[[\s\S]*\]', ai_text)
         if match:
