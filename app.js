@@ -28,7 +28,10 @@ async function loadDataFromBackend() {
             const newData = {
                 teachers: serverData.teachers || [],
                 tests: serverData.tests || [],
-                results: serverData.results || [],
+                results: (serverData.results || []).map((r, i) => {
+                    if (!r.id) r.id = 'legacy_' + i + '_' + Date.now().toString();
+                    return r;
+                }),
                 subjects: newSubjects
             };
             
@@ -111,9 +114,15 @@ let testTimer = null;
 let testTimeRemaining = 3600; // default
 let isAutoSubmit = false;
 
+// Roles
+let currentLoggedInTeacherId = null;
+
 // Modals
 function openModal(id) {
     document.getElementById(id).classList.add('active');
+    if (id === 'add-test-modal') {
+        populateTeacherSelectsAdmin();
+    }
 }
 
 function closeModal(id) {
@@ -139,19 +148,43 @@ document.addEventListener('DOMContentLoaded', () => {
         openModal('admin-login-modal');
     });
     
+    document.getElementById('btn-teacher-login-mode').addEventListener('click', () => {
+        openModal('teacher-login-modal');
+    });
+    
+    document.getElementById('teacher-login-form').addEventListener('submit', (e) => {
+        e.preventDefault();
+        const user = document.getElementById('teacher-username').value;
+        const pass = document.getElementById('teacher-password').value;
+        
+        const teacher = data.teachers.find(t => t.login === user && t.password === pass);
+        
+        if (teacher) {
+            currentLoggedInTeacherId = teacher.id;
+            closeModal('teacher-login-modal');
+            document.getElementById('mode-selector').classList.add('hidden');
+            document.getElementById('admin-app').classList.remove('hidden');
+            e.target.reset();
+            initAdminPanel();
+        } else {
+            alert('Login yoki parol noto\'g\'ri!');
+        }
+    });
+    
     document.getElementById('admin-login-form').addEventListener('submit', (e) => {
         e.preventDefault();
         const user = document.getElementById('admin-username').value;
         const pass = document.getElementById('admin-password').value;
         
         if (user === '452' && pass === '187') {
+            currentLoggedInTeacherId = null; // Admin
             closeModal('admin-login-modal');
             document.getElementById('mode-selector').classList.add('hidden');
             document.getElementById('admin-app').classList.remove('hidden');
             e.target.reset();
             initAdminPanel();
         } else {
-            alert('Login yoki parol noto\'g\'ri! (login: admin, parol: admin123)');
+            alert('Login yoki parol noto\'g\'ri!');
         }
     });
 
@@ -176,13 +209,26 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 levelSelect.innerHTML = '<option value="">Tanlang...</option>';
                 const levels = getLevelsForSubject(subject);
+                let hasAnyTest = false;
+                
                 levels.forEach(lvl => {
+                    const hasTest = data.tests.some(t => t.teacherId == teacherId && t.subject === subject && t.level === lvl);
                     const option = document.createElement('option');
                     option.value = lvl;
-                    option.textContent = lvl;
+                    if (hasTest) {
+                        option.textContent = lvl;
+                        hasAnyTest = true;
+                    } else {
+                        option.textContent = `${lvl} (Test yaratilmagan)`;
+                        option.disabled = true;
+                    }
                     levelSelect.appendChild(option);
                 });
                 levelSelect.disabled = false;
+                
+                if (!hasAnyTest) {
+                    alert(`Kechirasiz, ushbu o'qituvchi tomonidan ${subject} fanidan hali hech qanday test yaratilmagan!`);
+                }
             }
         } else {
             subjectInput.value = '';
@@ -282,10 +328,22 @@ function updateTimerDisplay() {
         `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
 }
 
+// Shuffle array utility
+function shuffleArray(array) {
+    let currentIndex = array.length, randomIndex;
+    while (currentIndex !== 0) {
+        randomIndex = Math.floor(Math.random() * currentIndex);
+        currentIndex--;
+        [array[currentIndex], array[randomIndex]] = [array[randomIndex], array[currentIndex]];
+    }
+    return array;
+}
+
 function renderTestQuestions() {
     const container = document.getElementById('questions-container');
     container.innerHTML = '';
     
+    // Shuffle questions as well if desired, but user just asked to shuffle options.
     const questionsToRender = currentTest.questions.slice(0, 50);
     
     questionsToRender.forEach((q, index) => {
@@ -294,8 +352,23 @@ function renderTestQuestions() {
         block.id = `qb-${index}`;
         block.style.display = index === 0 ? 'block' : 'none';
         
+        // Shuffle options and remember the new correct index or map it
+        // We will store the original options text and use that for mapping, or just map indices.
+        // It's safer to store the original correct option text string.
+        let originalCorrectText = q.options[q.correctAnswerIndex];
+        
+        let shuffledOptions = [...q.options];
+        shuffleArray(shuffledOptions);
+        
+        // Find the new correct answer index in the shuffled array
+        let newCorrectIndex = shuffledOptions.indexOf(originalCorrectText);
+        
+        // Store it so we can check it later without modifying the original question object in state
+        q.shuffledOptions = shuffledOptions;
+        q.shuffledCorrectIndex = newCorrectIndex;
+
         let optionsHTML = '';
-        q.options.forEach((opt, optIndex) => {
+        shuffledOptions.forEach((opt, optIndex) => {
             optionsHTML += `
                 <label class="option-label">
                     <input type="radio" name="q${index}" value="${optIndex}" onchange="goToNextQuestion(${index}, ${questionsToRender.length})" required>
@@ -354,7 +427,7 @@ function handleFinishTest(e) {
     
     questionsToRender.forEach((q, index) => {
         const selectedOption = formData.get(`q${index}`);
-        if (selectedOption !== null && parseInt(selectedOption) === q.correctAnswerIndex) {
+        if (selectedOption !== null && parseInt(selectedOption) === q.shuffledCorrectIndex) {
             correctCount++;
         } else {
             wrongCount++;
@@ -362,6 +435,7 @@ function handleFinishTest(e) {
     });
     
     const resultObj = {
+        id: Date.now().toString(),
         ...currentStudent,
         correct: correctCount,
         wrong: wrongCount,
@@ -426,8 +500,21 @@ function initAdminPanel() {
     renderTeachersTable();
     renderSubjectsTable();
     renderTestsTable();
-    populateTeacherSelectsAdmin();
     renderResultsTable();
+    populateTeacherSelectsAdmin();
+    
+    // Teacher Mode Restrictions
+    if (currentLoggedInTeacherId) {
+        document.querySelector('.nav-link[data-target="teachers"]').parentElement.style.display = 'none';
+        document.querySelector('.nav-link[data-target="subjects"]').parentElement.style.display = 'none';
+        
+        // Hide global export buttons if they exist
+        const globalPdfBtn = document.getElementById('btn-export-pdf');
+        if (globalPdfBtn) globalPdfBtn.style.display = 'inline-block';
+    } else {
+        document.querySelector('.nav-link[data-target="teachers"]').parentElement.style.display = 'block';
+        document.querySelector('.nav-link[data-target="subjects"]').parentElement.style.display = 'block';
+    }
     
     // Sidebar Navigation
     const navLinks = document.querySelectorAll('.nav-link[data-target]');
@@ -453,7 +540,9 @@ function initAdminPanel() {
     // Form Submissions
     document.getElementById('add-teacher-form').addEventListener('submit', handleAddTeacher);
     document.getElementById('add-subject-form').addEventListener('submit', handleAddSubject);
-    document.getElementById('generate-test-form').addEventListener('submit', handleGenerateTest);
+    document.getElementById('manual-test-form').addEventListener('submit', handleSaveManualTest);
+    document.getElementById('btn-parse-text').addEventListener('click', parseRawTestText);
+    document.getElementById('btn-add-question').addEventListener('click', () => addManualQuestionUI());
     
     // Select Change Event
     document.getElementById('gen-teacher').addEventListener('change', function() {
@@ -511,17 +600,26 @@ function initAdminPanel() {
 }
 
 function updateDashboardStats() {
-    const totalStudents = data.results.map(r => r.phone).filter((v, i, a) => a.indexOf(v) === i).length;
+    let statsResults = data.results;
+    let statsTests = data.tests;
+    let statsTeachers = data.teachers.length;
     
-    document.getElementById('stat-total-students').textContent = totalStudents;
-    document.getElementById('stat-total-tests').textContent = data.results.length;
-    document.getElementById('stat-total-teachers').textContent = data.teachers.length;
+    if (currentLoggedInTeacherId) {
+        statsResults = data.results.filter(r => r.teacherId === currentLoggedInTeacherId);
+        statsTests = data.tests.filter(t => t.teacherId === currentLoggedInTeacherId);
+        statsTeachers = 1;
+    }
+    
+    const uniqueStudents = new Set(statsResults.map(r => r.phone)).size;
+    document.getElementById('stat-total-students').textContent = uniqueStudents;
+    document.getElementById('stat-total-tests').textContent = statsTests.length;
+    document.getElementById('stat-total-teachers').textContent = statsTeachers;
     
     // Render recent results
     const recentTbody = document.querySelector('#recent-results-table tbody');
     if (recentTbody) {
         recentTbody.innerHTML = '';
-        const recentResults = [...data.results].sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 5);
+        const recentResults = [...statsResults].sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 5);
         recentResults.forEach(res => {
             const teacher = data.teachers.find(t => t.id === res.teacherId);
             const teacherName = teacher ? `${teacher.firstName} ${teacher.lastName}` : "Noma'lum";
@@ -557,13 +655,17 @@ function handleAddTeacher(e) {
     }
     
     const subjects = [selectedValue];
+    const login = Math.floor(100 + Math.random() * 900).toString();
+    const password = Math.floor(100 + Math.random() * 900).toString();
     
     const newTeacher = {
         id: Date.now().toString(),
         firstName,
         lastName,
         phone,
-        subjects
+        subjects,
+        login,
+        password
     };
     
     data.teachers.push(newTeacher);
@@ -573,7 +675,6 @@ function handleAddTeacher(e) {
     populateTeacherSelectsAdmin();
     e.target.reset();
     closeModal('add-teacher-modal');
-    alert("O'qituvchi muvaffaqiyatli qo'shildi!");
 }
 
 function renderTeachersTable() {
@@ -591,6 +692,7 @@ function renderTeachersTable() {
             <td>${teacher.firstName} ${teacher.lastName}</td>
             <td>${teacher.phone}</td>
             <td>${teacher.subjects.join(', ')}</td>
+            <td><strong style="color:var(--success)">L:</strong> ${teacher.login || '-'} <strong style="color:var(--danger); margin-left:5px;">P:</strong> ${teacher.password || '-'}</td>
             <td>
                 <button class="btn" style="padding: 5px 10px; font-size: 0.8rem;" onclick="viewTeacherStudents('${teacher.id}')">O'quvchilar</button>
                 <button class="btn btn-danger" style="padding: 5px 10px; font-size: 0.8rem; margin-left: 5px;" onclick="deleteTeacher('${teacher.id}')">O'chirish</button>
@@ -601,13 +703,11 @@ function renderTeachersTable() {
 }
 
 function deleteTeacher(id) {
-    if (confirm("Rostdan ham bu o'qituvchini o'chirmoqchimisiz?")) {
-        data.teachers = data.teachers.filter(t => t.id !== id);
-        saveData();
-        renderTeachersTable();
-        populateTeacherSelectsAdmin();
-        updateDashboardStats();
-    }
+    data.teachers = data.teachers.filter(t => t.id !== id);
+    saveData();
+    renderTeachersTable();
+    populateTeacherSelectsAdmin();
+    updateDashboardStats();
 }
 
 function handleAddSubject(e) {
@@ -626,7 +726,6 @@ function handleAddSubject(e) {
     populateTeacherSelectsAdmin();
     e.target.reset();
     closeModal('add-subject-modal');
-    alert("Fan muvaffaqiyatli qo'shildi!");
 }
 
 function renderSubjectsTable() {
@@ -652,105 +751,203 @@ function renderSubjectsTable() {
 }
 
 function deleteSubject(subject) {
-    if (confirm("Rostdan ham bu fanni o'chirmoqchimisiz?")) {
-        data.subjects = data.subjects.filter(s => s !== subject);
-        saveData();
-        renderSubjectsTable();
-        populateTeacherSelectsAdmin();
+    data.subjects = data.subjects.filter(s => s !== subject);
+    saveData();
+    renderSubjectsTable();
+    populateTeacherSelectsAdmin();
+}
+
+// Store manual questions count
+let manualQuestionCount = 0;
+
+function addManualQuestionUI(qText = '', optA = '', optB = '', optC = '', optD = '', correctIndex = -1) {
+    manualQuestionCount++;
+    const container = document.getElementById('manual-questions-container');
+    const qDiv = document.createElement('div');
+    qDiv.className = 'card manual-q-card';
+    qDiv.style.marginBottom = '1rem';
+    qDiv.style.padding = '1rem';
+    qDiv.style.border = '1px solid var(--border-color)';
+    qDiv.dataset.id = manualQuestionCount;
+    
+    qDiv.innerHTML = `
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 0.5rem;">
+            <strong>Savol ${manualQuestionCount}</strong>
+            <button type="button" class="btn btn-danger" style="padding: 2px 8px; font-size: 0.8rem;" onclick="this.parentElement.parentElement.remove()">X</button>
+        </div>
+        <div class="form-group">
+            <textarea class="form-control q-text" rows="2" placeholder="Savol matni..." required>${qText}</textarea>
+        </div>
+        <div class="form-row" style="margin-bottom: 0.5rem;">
+            <div class="form-group" style="flex:1; display:flex; align-items:flex-start; gap: 5px; cursor: pointer;" onclick="this.querySelector('input[type=\\'radio\\']').checked = true;">
+                <input type="radio" name="q_correct_${manualQuestionCount}" value="0" style="margin-top: 12px;" required title="To'g'ri javob" ${correctIndex === 0 ? 'checked' : ''}>
+                <textarea class="form-control q-opt" rows="2" placeholder="A varianti" required>${optA}</textarea>
+            </div>
+            <div class="form-group" style="flex:1; display:flex; align-items:flex-start; gap: 5px; cursor: pointer;" onclick="this.querySelector('input[type=\\'radio\\']').checked = true;">
+                <input type="radio" name="q_correct_${manualQuestionCount}" value="1" style="margin-top: 12px;" required title="To'g'ri javob" ${correctIndex === 1 ? 'checked' : ''}>
+                <textarea class="form-control q-opt" rows="2" placeholder="B varianti" required>${optB}</textarea>
+            </div>
+        </div>
+        <div class="form-row">
+            <div class="form-group" style="flex:1; display:flex; align-items:flex-start; gap: 5px; cursor: pointer;" onclick="this.querySelector('input[type=\\'radio\\']').checked = true;">
+                <input type="radio" name="q_correct_${manualQuestionCount}" value="2" style="margin-top: 12px;" required title="To'g'ri javob" ${correctIndex === 2 ? 'checked' : ''}>
+                <textarea class="form-control q-opt" rows="2" placeholder="C varianti" required>${optC}</textarea>
+            </div>
+            <div class="form-group" style="flex:1; display:flex; align-items:flex-start; gap: 5px; cursor: pointer;" onclick="this.querySelector('input[type=\\'radio\\']').checked = true;">
+                <input type="radio" name="q_correct_${manualQuestionCount}" value="3" style="margin-top: 12px;" required title="To'g'ri javob" ${correctIndex === 3 ? 'checked' : ''}>
+                <textarea class="form-control q-opt" rows="2" placeholder="D varianti" required>${optD}</textarea>
+            </div>
+        </div>
+    `;
+    container.appendChild(qDiv);
+}
+
+function parseRawTestText() {
+    const rawText = document.getElementById('raw-test-text').value;
+    if (!rawText.trim()) {
+        alert("Iltimos, matnni kiriting!");
+        return;
+    }
+    
+    // Remove markdown bold asterisks and hashes just in case
+    const cleanText = rawText.replace(/[\*#]/g, '');
+    
+    // We split by lines, look for question numbers and options.
+    const blocks = cleanText.split(/(?=(?:^|\n)\s*\d+[\.\)]\s+)/);
+    
+    let parsedCount = 0;
+    
+    blocks.forEach(block => {
+        if (!block.trim()) return;
+        let qMatch = block.match(/^\s*\d+[\.\)]\s*(.*?)(?=(?:^|\n)\s*[Aa][\)\.])/s);
+        let aMatch = block.match(/(?:^|\n)\s*[Aa][\)\.]\s*(.*?)(?=(?:^|\n)\s*[Bb][\)\.]|$)/s);
+        let bMatch = block.match(/(?:^|\n)\s*[Bb][\)\.]\s*(.*?)(?=(?:^|\n)\s*[Cc][\)\.]|$)/s);
+        let cMatch = block.match(/(?:^|\n)\s*[Cc][\)\.]\s*(.*?)(?=(?:^|\n)\s*[Dd][\)\.]|$)/s);
+        let dMatch = block.match(/(?:^|\n)\s*[Dd][\)\.]\s*(.*?)(?=(?:^|\n)\s*\d+[\.\)]|$)/s);
+        
+        if (qMatch && aMatch && bMatch && cMatch && dMatch) {
+            let dText = dMatch[1];
+            let correctIndex = -1;
+            
+            // Extract answer if Javob: A) or Answer: B etc is present
+            let ansMatch = block.match(/(?:javob|answer|ответ)[a-z]*\s*[:\-\.]?\s*([A-Da-d])\b/i);
+            if (ansMatch) {
+                const char = ansMatch[1].toUpperCase();
+                correctIndex = ['A', 'B', 'C', 'D'].indexOf(char);
+                
+                // Clean up D option text
+                let javobSearch = dText.search(/(?:^|\n)\s*(?:###\s*)?(?:javob|answer|ответ)/i);
+                if (javobSearch !== -1) {
+                    dText = dText.substring(0, javobSearch);
+                }
+            }
+
+            addManualQuestionUI(
+                qMatch[1].trim(), 
+                aMatch[1].trim(), 
+                bMatch[1].trim(), 
+                cMatch[1].trim(), 
+                dText.trim(),
+                correctIndex
+            );
+            parsedCount++;
+        }
+    });
+    
+    if (parsedCount > 0) {
+        document.getElementById('raw-test-text').value = ''; // clear
+    } else {
+        alert("Matndan savollarni ajratib bo'lmadi. Format noto'g'ri bo'lishi mumkin. '1. Savol... A) ... B) ... C) ... D) ...' formatida kiritganingizga ishonch hosil qiling.");
     }
 }
 
-async function handleGenerateTest(e) {
+// Reset questions when opening modal
+const originalOpenModal = openModal;
+openModal = function(id) {
+    if (id === 'add-test-modal') {
+        manualQuestionCount = 0;
+        document.getElementById('manual-questions-container').innerHTML = '';
+        document.getElementById('raw-test-text').value = '';
+
+    }
+    originalOpenModal(id);
+};
+
+function handleSaveManualTest(e) {
     e.preventDefault();
     
     const teacherId = document.getElementById('gen-teacher').value;
     const subject = document.getElementById('gen-subject').value;
     const level = document.getElementById('gen-level').value;
     const duration = parseInt(document.getElementById('gen-duration').value) || 60;
-    const promptText = document.getElementById('gen-prompt').value;
     
     if (!teacherId || !subject || !level) {
         alert("Iltimos, o'qituvchi, fan va darajani tanlang!");
         return;
     }
     
-    const testExists = data.tests.find(t => t.teacherId === teacherId && t.subject === subject && t.level === level);
-    if(testExists) {
-        if(!confirm("Ushbu daraja va fan uchun test allaqachon mavjud. Yana bitta variant yaratmoqchimisiz? (O'quvchilarga tasodifiy variant tushadi)")) {
-            return;
+    const qCards = document.querySelectorAll('.manual-q-card');
+    if (qCards.length === 0) {
+        alert("Kamida bitta savol qo'shing!");
+        return;
+    }
+    
+    let questions = [];
+    let isValid = true;
+    
+    qCards.forEach(card => {
+        const text = card.querySelector('.q-text').value.trim();
+        const opts = Array.from(card.querySelectorAll('.q-opt')).map(inp => inp.value.trim());
+        const correctRadio = card.querySelector('input[type="radio"]:checked');
+        
+        if (!text || opts.some(o => !o) || !correctRadio) {
+            isValid = false;
+        } else {
+            questions.push({
+                question: text,
+                options: opts,
+                correctAnswerIndex: parseInt(correctRadio.value)
+            });
         }
+    });
+    
+    if (!isValid) {
+        alert("Iltimos, hamma savollar matnini, variantlarini to'liq kiriting va to'g'ri javobni belgilang!");
+        return;
     }
 
-    const loadingOverlay = document.getElementById('loading');
-    loadingOverlay.classList.add('active');
-
-    const prompt = `Generate exactly 50 multiple-choice questions for ${subject} at ${level} level in Uzbek language. 
-    Additional instructions: ${promptText}.
-    Return the response ONLY as a valid JSON array of objects. Do NOT include any markdown code blocks, do NOT include \`\`\`json. Just the raw array.
-    Each object must have this exact structure:
-    {"question": "Question text here?", "options": ["Option 1", "Option 2", "Option 3", "Option 4"], "correctAnswerIndex": 0}
-    Ensure correctAnswerIndex is an integer from 0 to 3.`;
-
-    try {
-        const response = await fetch('/api/generate-test', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                subject: subject,
-                level: level,
-                promptText: promptText
-            })
-        });
-
-        if (!response.ok) {
-            const errData = await response.json();
-            throw new Error(errData.detail || "Serverdan xato keldi.");
-        }
-
-        const result = await response.json();
-        const questions = result.questions;
-        
-        if (!Array.isArray(questions) || questions.length === 0) {
-            throw new Error("Yaratilgan savollar ro'yxati bo'sh yoki noto'g'ri.");
-        }
-
-        // No longer deleting old tests to allow multiple variants
-        
-        const newTest = {
-            id: Date.now().toString(),
-            teacherId,
-            subject,
-            level,
-            duration,
-            questions,
-            createdAt: new Date().toISOString()
-        };
-        
-        data.tests.push(newTest);
-        saveData();
-        renderTestsTable();
-        closeModal('add-test-modal');
-        e.target.reset();
-        alert("Test muvaffaqiyatli yaratildi!");
-
-    } catch (error) {
-        console.error("AI xatosi:", error);
-        alert("Test yaratishda xatolik yuz berdi. Xato: " + error.message);
-    } finally {
-        loadingOverlay.classList.remove('active');
-    }
+    const newTest = {
+        id: Date.now().toString(),
+        teacherId,
+        subject,
+        level,
+        duration,
+        questions,
+        createdAt: new Date().toISOString()
+    };
+    
+    data.tests.push(newTest);
+    saveData();
+    renderTestsTable();
+    closeModal('add-test-modal');
+    e.target.reset();
 }
 
 function renderTestsTable() {
     const tbody = document.querySelector('#tests-table tbody');
     tbody.innerHTML = '';
     
-    if (data.tests.length === 0) {
+    let filteredTests = data.tests;
+    if (currentLoggedInTeacherId) {
+        filteredTests = filteredTests.filter(t => t.teacherId === currentLoggedInTeacherId);
+    }
+    
+    if (filteredTests.length === 0) {
         tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding: 3rem;"><i class="ph ph-exam" style="font-size: 3rem; color: var(--text-light); margin-bottom: 1rem; display: block;"></i><p style="color: var(--text-light); font-size: 1.1rem;">Hozircha testlar yo\'q</p></td></tr>';
         return;
     }
     
-    data.tests.forEach(test => {
+    filteredTests.forEach(test => {
         const teacher = data.teachers.find(t => t.id === test.teacherId);
         const teacherName = teacher ? `${teacher.firstName} ${teacher.lastName}` : 'Noma\'lum';
         
@@ -770,11 +967,9 @@ function renderTestsTable() {
 }
 
 function deleteTest(id) {
-    if (confirm("Ushbu testni o'chirmoqchimisiz?")) {
-        data.tests = data.tests.filter(t => t.id !== id);
-        saveData();
-        renderTestsTable();
-    }
+    data.tests = data.tests.filter(t => t.id !== id);
+    saveData();
+    renderTestsTable();
 }
 
 function renderResultsTable() {
@@ -782,11 +977,32 @@ function renderResultsTable() {
     tbody.innerHTML = '';
     
     const filterSelect = document.getElementById('results-teacher-filter');
-    const filterId = filterSelect ? filterSelect.value : 'all';
+    let filterId = filterSelect ? filterSelect.value : 'all';
+    
+    const levelSelect = document.getElementById('results-level-filter');
+    let filterLevel = levelSelect ? levelSelect.value : 'all';
+    
+    const searchInput = document.getElementById('results-student-search');
+    const searchQuery = searchInput ? searchInput.value.toLowerCase() : '';
+    
+    if (currentLoggedInTeacherId) {
+        filterId = currentLoggedInTeacherId;
+    }
     
     let filteredResults = data.results;
     if (filterId !== 'all') {
         filteredResults = filteredResults.filter(r => r.teacherId === filterId);
+    }
+    
+    if (filterLevel !== 'all') {
+        filteredResults = filteredResults.filter(r => r.level === filterLevel);
+    }
+    
+    if (searchQuery) {
+        filteredResults = filteredResults.filter(r => 
+            (r.firstName || '').toLowerCase().includes(searchQuery) || 
+            (r.lastName || '').toLowerCase().includes(searchQuery)
+        );
     }
     
     const sortedResults = [...filteredResults].sort((a, b) => new Date(b.date) - new Date(a.date));
@@ -819,12 +1035,10 @@ function renderResultsTable() {
 }
 
 function deleteResult(id) {
-    if (confirm("Ushbu natijani o'chirmoqchimisiz?")) {
-        data.results = data.results.filter(r => r.id !== id);
-        saveData();
-        renderResultsTable();
-        updateDashboardStats();
-    }
+    data.results = data.results.filter(r => String(r.id) !== String(id));
+    saveData();
+    renderResultsTable();
+    updateDashboardStats();
 }
 
 let currentSelectedTeacherForExport = null;
@@ -910,8 +1124,10 @@ function exportTeacherStudentsToPDF() {
         startY: 30,
         head: [['O\'quvchi', 'Telefon', 'Fan', 'Daraja', 'Natija', 'Sana']],
         body: tableData,
-        theme: 'grid',
-        headStyles: { fillColor: [255, 193, 7], textColor: [51, 51, 51] }
+        theme: 'striped',
+        headStyles: { fillColor: [51, 51, 51], textColor: [255, 255, 255], fontStyle: 'bold' },
+        styles: { fontSize: 10, cellPadding: 4 },
+        alternateRowStyles: { fillColor: [245, 245, 245] }
     });
     
     doc.save(`${teacher.firstName}_${teacher.lastName}_Natijalar.pdf`);
@@ -927,9 +1143,16 @@ function exportResultsToPDF() {
     const filterSelect = document.getElementById('results-teacher-filter');
     const filterId = filterSelect ? filterSelect.value : 'all';
     
+    const levelSelect = document.getElementById('results-level-filter');
+    const filterLevel = levelSelect ? levelSelect.value : 'all';
+    
     let filteredResults = data.results;
     if (filterId !== 'all') {
         filteredResults = filteredResults.filter(r => r.teacherId === filterId);
+    }
+    
+    if (filterLevel !== 'all') {
+        filteredResults = filteredResults.filter(r => r.level === filterLevel);
     }
     const sortedResults = [...filteredResults].sort((a, b) => new Date(b.date) - new Date(a.date));
     
@@ -950,8 +1173,10 @@ function exportResultsToPDF() {
         startY: 30,
         head: [['O\'quvchi', 'Telefon', 'O\'qituvchi', 'Daraja', 'Natija', 'Sana']],
         body: tableData,
-        theme: 'grid',
-        headStyles: { fillColor: [255, 193, 7], textColor: [51, 51, 51] }
+        theme: 'striped',
+        headStyles: { fillColor: [51, 51, 51], textColor: [255, 255, 255], fontStyle: 'bold' },
+        styles: { fontSize: 10, cellPadding: 4 },
+        alternateRowStyles: { fillColor: [245, 245, 245] }
     });
     
     doc.save('TimeSchool_Natijalar.pdf');
@@ -964,21 +1189,53 @@ function populateTeacherSelectsAdmin() {
     if(selectGen) {
         selectGen.innerHTML = '<option value="">Tanlang...</option>';
         data.teachers.forEach(t => {
+            if (currentLoggedInTeacherId && t.id !== currentLoggedInTeacherId) return;
             const option = document.createElement('option');
             option.value = t.id;
             option.textContent = `${t.firstName} ${t.lastName}`;
             selectGen.appendChild(option);
         });
+        if (currentLoggedInTeacherId) {
+            selectGen.value = currentLoggedInTeacherId;
+            selectGen.disabled = true;
+            // load subject for this teacher
+            selectGen.dispatchEvent(new Event('change'));
+        } else {
+            selectGen.disabled = false;
+        }
     }
     
     if (filterSelect) {
         filterSelect.innerHTML = '<option value="all">Barchasi</option>';
         data.teachers.forEach(t => {
+            if (currentLoggedInTeacherId && t.id !== currentLoggedInTeacherId) return;
             const option = document.createElement('option');
             option.value = t.id;
             option.textContent = `${t.firstName} ${t.lastName}`;
             filterSelect.appendChild(option);
         });
+        if (currentLoggedInTeacherId) {
+            filterSelect.value = currentLoggedInTeacherId;
+            filterSelect.disabled = true;
+        } else {
+            filterSelect.disabled = false;
+        }
+    }
+    
+    const levelFilterSelect = document.getElementById('results-level-filter');
+    if (levelFilterSelect) {
+        const currentVal = levelFilterSelect.value;
+        levelFilterSelect.innerHTML = '<option value="all">Barchasi</option>';
+        const uniqueLevels = [...new Set(data.results.map(r => r.level))].filter(Boolean);
+        uniqueLevels.forEach(lvl => {
+            const option = document.createElement('option');
+            option.value = lvl;
+            option.textContent = lvl;
+            levelFilterSelect.appendChild(option);
+        });
+        if (uniqueLevels.includes(currentVal)) {
+            levelFilterSelect.value = currentVal;
+        }
     }
     
     const subjectSelect = document.getElementById('t-subjects-options');

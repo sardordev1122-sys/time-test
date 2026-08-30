@@ -18,12 +18,13 @@
 <div class="student-container" id="mode-selector">
     <div class="student-card" style="text-align: center;">
         <div class="test-header">
-            <h1>Time <span>School</span></h1>
+            <h1><img src="logo.jpg" alt="Logo" style="height: 40px; vertical-align: middle; margin-right: 10px; border-radius: 50%;">Time <span>School</span></h1>
             <p>Tizimga xush kelibsiz. Iltimos, bo'limni tanlang:</p>
         </div>
-        <div style="display: flex; gap: 1rem; justify-content: center; margin-top: 2rem;">
-            <button id="btn-student-mode" class="btn" style="flex: 1;">O'quvchi</button>
-            <button id="btn-admin-login-mode" class="btn btn-danger" style="flex: 1; background-color: var(--text-dark);">Admin</button>
+        <div style="display: flex; gap: 1rem; justify-content: center; margin-top: 2rem; flex-wrap: wrap;">
+            <button id="btn-student-mode" class="btn" style="flex: 1; min-width: 150px;">O'quvchi</button>
+            <button id="btn-teacher-login-mode" class="btn" style="flex: 1; min-width: 150px; background-color: var(--success); color: white;">O'qituvchi</button>
+            <button id="btn-admin-login-mode" class="btn btn-danger" style="flex: 1; min-width: 150px; background-color: var(--text-dark);">Admin</button>
         </div>
     </div>
 </div>
@@ -49,6 +50,27 @@
     </div>
 </div>
 
+<!-- Teacher Login Modal -->
+<div id="teacher-login-modal" class="modal">
+    <div class="modal-content" style="max-width: 400px;">
+        <span class="close-modal" onclick="closeModal('teacher-login-modal')">&times;</span>
+        <div class="test-header">
+            <h2>O'qituvchi <span>Login</span></h2>
+        </div>
+        <form id="teacher-login-form">
+            <div class="form-group">
+                <label>Login (3 xonali)</label>
+                <input type="text" id="teacher-username" class="form-control" required>
+            </div>
+            <div class="form-group">
+                <label>Parol (3 xonali)</label>
+                <input type="password" id="teacher-password" class="form-control" required>
+            </div>
+            <button type="submit" class="btn" style="width: 100%; background-color: var(--success); color: white;">Kirish</button>
+        </form>
+    </div>
+</div>
+
 <!-- ================= STUDENT PANEL ================= -->
 <div id="student-app" class="hidden">
     <div style="position: absolute; top: 20px; right: 20px;">
@@ -58,7 +80,7 @@
     <div class="student-container">
         <div class="student-card" id="registration-card">
             <div class="test-header">
-                <h1>Time <span>School</span></h1>
+                <h1><img src="logo.jpg" alt="Logo" style="height: 40px; vertical-align: middle; margin-right: 10px; border-radius: 50%;">Time <span>School</span></h1>
                 <p>Test ishlash uchun ma'lumotlaringizni kiriting</p>
             </div>
             <form id="student-form">
@@ -104,7 +126,7 @@
 
         <div class="student-card hidden" id="test-card">
             <div class="test-header">
-                <h1>Time <span>School</span> Test</h1>
+                <h1><img src="logo.jpg" alt="Logo" style="height: 40px; vertical-align: middle; margin-right: 10px; border-radius: 50%;">Time <span>School</span> Test</h1>
                 <h3 id="test-info-display"></h3>
                 <div id="test-timer" style="font-size: 1.5rem; font-weight: bold; color: var(--danger); margin-top: 10px;">60:00</div>
             </div>
@@ -157,7 +179,7 @@
 <div id="admin-app" class="hidden">
     <div class="admin-container">
         <aside class="sidebar">
-            <div class="sidebar-logo">Time <span>School</span></div>
+            <div class="sidebar-logo"><img src="logo.jpg" alt="Logo" style="height: 40px; vertical-align: middle; margin-right: 10px; border-radius: 50%;">Time <span>School</span></div>
             <ul class="nav-menu">
                 <li class="nav-item">
                     <a href="#" class="nav-link active" data-target="dashboard"><i class="ph ph-squares-four"></i> Dashboard</a>
@@ -244,6 +266,7 @@
                                     <th>F.I.O</th>
                                     <th>Telefon</th>
                                     <th>Fanlar</th>
+                                    <th>Login / Parol</th>
                                     <th>Harakatlar</th>
                                 </tr>
                             </thead>
@@ -278,7 +301,7 @@
             <section id="tests" class="content-section hidden">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
                     <h2>Testlar</h2>
-                    <button class="btn" onclick="openModal('add-test-modal')">+ Yangi Test Yaratish (AI)</button>
+                    <button class="btn" onclick="openModal('add-test-modal')">+ Yangi Test Yaratish</button>
                 </div>
 
                 <div class="card">
@@ -299,7 +322,6 @@
                     </div>
                 </div>
             </section>
-
             <!-- Subjects Section -->
             <section id="subjects" class="content-section hidden">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
@@ -332,6 +354,17 @@
                             <select id="results-teacher-filter" class="form-control">
                                 <option value="all">Barchasi</option>
                             </select>
+                        </div>
+                        <div class="form-group" style="margin-bottom: 0; min-width: 200px;">
+                            <label>Daraja bo'yicha filter</label>
+                            <select id="results-level-filter" class="form-control" onchange="if(typeof renderResultsTable === 'function') renderResultsTable()">
+                                <option value="all">Barchasi</option>
+                                <!-- Levels will be populated here -->
+                            </select>
+                        </div>
+                        <div class="form-group" style="margin-bottom: 0; min-width: 250px;">
+                            <label>Qidirish</label>
+                            <input type="text" id="results-student-search" class="form-control" placeholder="Ism yoki familiya..." oninput="if(typeof renderResultsTable === 'function') renderResultsTable()">
                         </div>
                         <button id="btn-export-pdf" class="btn">PDF Yuklab Olish</button>
                     </div>
@@ -415,10 +448,10 @@
 
 <!-- Add Test Modal -->
 <div id="add-test-modal" class="modal">
-    <div class="modal-content">
+    <div class="modal-content" style="max-width: 800px; max-height: 90vh; overflow-y: auto;">
         <span class="close-modal" onclick="closeModal('add-test-modal')">&times;</span>
-        <h3>Yangi Test Yaratish (AI orqali)</h3>
-        <form id="generate-test-form">
+        <h3>Yangi Test Yaratish (Qo'lda kiritish)</h3>
+        <form id="manual-test-form">
             <div class="form-row">
                 <div class="form-group">
                     <label>O'qituvchini tanlang</label>
@@ -437,35 +470,34 @@
                     </select>
                 </div>
                 <div class="form-group">
-                    <label>Test Soni</label>
-                    <input type="number" id="gen-count" class="form-control" value="50" disabled>
+                    <label>Test Vaqti (Daqiqa)</label>
+                    <select id="gen-duration" class="form-control" required>
+                        <option value="30">30 daqiqa (Yarim soat)</option>
+                        <option value="45">45 daqiqa</option>
+                        <option value="60" selected>60 daqiqa (1 soat)</option>
+                        <option value="90">90 daqiqa (1.5 soat)</option>
+                        <option value="120">120 daqiqa (2 soat)</option>
+                    </select>
                 </div>
             </div>
-            <div class="form-group">
-                <label>Test Vaqti</label>
-                <select id="gen-duration" class="form-control" required>
-                    <option value="30">30 daqiqa (Yarim soat)</option>
-                    <option value="45">45 daqiqa</option>
-                    <option value="60" selected>60 daqiqa (1 soat)</option>
-                    <option value="90">90 daqiqa (1.5 soat)</option>
-                    <option value="120">120 daqiqa (2 soat)</option>
-                </select>
+            <div class="form-group" style="margin-top: 1rem;">
+                <label>Test matnini to'liq shu yerga tashlang. <br><small style="color:var(--danger); font-weight:normal;">Qoida: Har bir savol raqam bilan (Masalan: 1. yoki 1) ), variantlar A), B), C), D) bilan boshlanishi kerak. To'g'ri javobni har bir savol oxirida "Javob: A" deb ko'rsating.</small></label>
+                <textarea id="raw-test-text" class="form-control" rows="10" placeholder="1. O'zbekiston poytaxti qayer?&#10;A) Samarqand&#10;B) Toshkent&#10;C) Buxoro&#10;D) Xiva&#10;Javob: B"></textarea>
             </div>
-            <div class="form-group">
-                <label>AI Promt (Qo'shimcha ko'rsatmalar)</label>
-                <textarea id="gen-prompt" class="form-control" rows="3" placeholder="Masalan: Test savollari qiziqarli bo'lsin..."></textarea>
+            
+            <button type="button" class="btn" id="btn-parse-text" style="width: 100%; margin-bottom: 1rem; background-color: var(--secondary-color); color: var(--text-dark);">Matndan savollarni ajratish</button>
+            
+            <div id="manual-questions-container" style="margin-top: 1rem;">
+                <!-- Parsed Questions will be dynamically added here by JS -->
             </div>
-            <button type="submit" class="btn" style="width: 100%;">Test Yaratish (AI)</button>
+            
+            <button type="button" class="btn" id="btn-add-question" style="width: 100%; margin-bottom: 1rem; background-color: #eee; color: var(--text-dark);">+ Yana 1 ta bo'sh savol qo'shish</button>
+            <button type="submit" class="btn btn-primary" style="width: 100%;">Testni Saqlash</button>
         </form>
     </div>
 </div>
 
-<!-- Loading Overlay -->
-<div class="loading-overlay" id="loading">
-    <div class="spinner"></div>
-    <h2 style="color: var(--primary-color);">AI Test Yaratmoqda...</h2>
-    <p>Iltimos biroz kuting</p>
-</div>
+
 
 <script src="app.js"></script>
 </body>
