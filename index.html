@@ -253,7 +253,7 @@
 
             <!-- Teachers Section -->
             <section id="teachers" class="content-section hidden">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                <div class="section-header">
                     <h2>O'qituvchilar</h2>
                     <button class="btn" onclick="openModal('add-teacher-modal')">+ Yangi Qo'shish</button>
                 </div>
@@ -299,7 +299,7 @@
 
             <!-- Tests Section -->
             <section id="tests" class="content-section hidden">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                <div class="section-header">
                     <h2>Testlar</h2>
                     <button class="btn" onclick="openModal('add-test-modal')">+ Yangi Test Yaratish</button>
                 </div>
@@ -324,7 +324,7 @@
             </section>
             <!-- Subjects Section -->
             <section id="subjects" class="content-section hidden">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                <div class="section-header">
                     <h2>Fanlar</h2>
                     <button class="btn" onclick="openModal('add-subject-modal')">+ Yangi Fan Qo'shish</button>
                 </div>
@@ -348,21 +348,21 @@
             <section id="results" class="content-section hidden">
                 <h2>Umumiy Natijalar</h2>
                 <div class="card">
-                    <div style="display: flex; gap: 10px; margin-bottom: 1rem; align-items: flex-end;">
-                        <div class="form-group" style="margin-bottom: 0; min-width: 250px;">
+                    <div class="filter-row">
+                        <div class="form-group" style="margin-bottom: 0;">
                             <label>O'qituvchi bo'yicha filter</label>
                             <select id="results-teacher-filter" class="form-control">
                                 <option value="all">Barchasi</option>
                             </select>
                         </div>
-                        <div class="form-group" style="margin-bottom: 0; min-width: 200px;">
+                        <div class="form-group" style="margin-bottom: 0;">
                             <label>Daraja bo'yicha filter</label>
                             <select id="results-level-filter" class="form-control" onchange="if(typeof renderResultsTable === 'function') renderResultsTable()">
                                 <option value="all">Barchasi</option>
                                 <!-- Levels will be populated here -->
                             </select>
                         </div>
-                        <div class="form-group" style="margin-bottom: 0; min-width: 250px;">
+                        <div class="form-group" style="margin-bottom: 0;">
                             <label>Qidirish</label>
                             <input type="text" id="results-student-search" class="form-control" placeholder="Ism yoki familiya..." oninput="if(typeof renderResultsTable === 'function') renderResultsTable()">
                         </div>
