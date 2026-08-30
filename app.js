@@ -596,7 +596,10 @@ function initAdminPanel() {
     document.getElementById('btn-export-excel').addEventListener('click', exportTeacherStudentsToExcel);
     document.getElementById('btn-export-pdf-teacher').addEventListener('click', exportTeacherStudentsToPDF);
     document.getElementById('btn-export-pdf').addEventListener('click', exportResultsToPDF);
-    document.getElementById('results-teacher-filter').addEventListener('change', renderResultsTable);
+    document.getElementById('results-teacher-filter').addEventListener('change', function() {
+        updateResultsLevelFilter();
+        renderResultsTable();
+    });
 }
 
 function updateDashboardStats() {
@@ -972,6 +975,35 @@ function deleteTest(id) {
     renderTestsTable();
 }
 
+function updateResultsLevelFilter() {
+    const filterSelect = document.getElementById('results-teacher-filter');
+    const teacherId = filterSelect ? filterSelect.value : 'all';
+    const levelSelect = document.getElementById('results-level-filter');
+    if (!levelSelect) return;
+    
+    const currentVal = levelSelect.value;
+    levelSelect.innerHTML = '<option value="all">Barchasi</option>';
+    
+    let relevantTests = data.tests;
+    if (teacherId !== 'all') {
+        relevantTests = relevantTests.filter(t => t.teacherId === teacherId);
+    }
+    
+    const uniqueLevels = [...new Set(relevantTests.map(t => t.level))].filter(Boolean);
+    uniqueLevels.forEach(lvl => {
+        const option = document.createElement('option');
+        option.value = lvl;
+        option.textContent = lvl;
+        levelSelect.appendChild(option);
+    });
+    
+    if (uniqueLevels.includes(currentVal)) {
+        levelSelect.value = currentVal;
+    } else {
+        levelSelect.value = 'all';
+    }
+}
+
 function renderResultsTable() {
     const tbody = document.querySelector('#results-table tbody');
     tbody.innerHTML = '';
@@ -1124,7 +1156,7 @@ function exportTeacherStudentsToPDF() {
         startY: 30,
         head: [['O\'quvchi', 'Telefon', 'Fan', 'Daraja', 'Natija', 'Sana']],
         body: tableData,
-        theme: 'striped',
+        theme: 'grid',
         headStyles: { fillColor: [51, 51, 51], textColor: [255, 255, 255], fontStyle: 'bold' },
         styles: { fontSize: 10, cellPadding: 4 },
         alternateRowStyles: { fillColor: [245, 245, 245] }
@@ -1173,7 +1205,7 @@ function exportResultsToPDF() {
         startY: 30,
         head: [['O\'quvchi', 'Telefon', 'O\'qituvchi', 'Daraja', 'Natija', 'Sana']],
         body: tableData,
-        theme: 'striped',
+        theme: 'grid',
         headStyles: { fillColor: [51, 51, 51], textColor: [255, 255, 255], fontStyle: 'bold' },
         styles: { fontSize: 10, cellPadding: 4 },
         alternateRowStyles: { fillColor: [245, 245, 245] }
@@ -1222,21 +1254,7 @@ function populateTeacherSelectsAdmin() {
         }
     }
     
-    const levelFilterSelect = document.getElementById('results-level-filter');
-    if (levelFilterSelect) {
-        const currentVal = levelFilterSelect.value;
-        levelFilterSelect.innerHTML = '<option value="all">Barchasi</option>';
-        const uniqueLevels = [...new Set(data.results.map(r => r.level))].filter(Boolean);
-        uniqueLevels.forEach(lvl => {
-            const option = document.createElement('option');
-            option.value = lvl;
-            option.textContent = lvl;
-            levelFilterSelect.appendChild(option);
-        });
-        if (uniqueLevels.includes(currentVal)) {
-            levelFilterSelect.value = currentVal;
-        }
-    }
+    updateResultsLevelFilter();
     
     const subjectSelect = document.getElementById('t-subjects-options');
     if (subjectSelect) {
